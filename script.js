@@ -9,7 +9,7 @@
   var NEED_WORD = { 3: 'Three', 4: 'Four', 5: 'Five' };
   var DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]]; /* [dc, dr] */
 
-  var settings = { mode: 'pvp', diff: 'tricky', order: 'human', size: 3, name: '' };
+  var settings = { mode: 'pvp', diff: 'tricky', order: 'human', size: 3, name: '', muted: false, theme: '' };
   var scores = { x: 0, o: 0, d: 0 };
   try {
     var saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -21,6 +21,8 @@
   var N = +settings.size;      /* board is N x N */
   var K = BOARDS[N];           /* K in a row wins */
   var board, turn, over, cpuTimer = null;
+  var starter = Math.random() < 0.5 ? 'x' : 'o'; /* random side first; then loser starts, draws swap */
+  var lastCell = -1;           /* most recent move, for the highlight */
 
   var el = {
     arena: document.getElementById('arena'),
@@ -56,8 +58,78 @@
     modalInput: document.getElementById('modalInput'),
     modalOk: document.getElementById('modalOk'),
     modalCancel: document.getElementById('modalCancel'),
-    toasts: document.getElementById('toasts')
+    toasts: document.getElementById('toasts'),
+    rematchBtn: document.getElementById('rematchBtn'),
+    soundBtn: document.getElementById('soundBtn'),
+    themeBtn: document.getElementById('themeBtn'),
+    joinInput: document.getElementById('joinInput'),
+    joinBtn: document.getElementById('joinBtn')
   };
+
+  /* ----- theme toggle ----- */
+  function effectiveTheme() {
+    if (settings.theme === 'light' || settings.theme === 'dark') return settings.theme;
+    try {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (e) { return 'light'; }
+  }
+  function applyTheme() {
+    if (settings.theme === 'light' || settings.theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', settings.theme);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    var dark = effectiveTheme() === 'dark';
+    el.themeBtn.textContent = dark ? '☀️' : '🌙';
+    el.themeBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to night mode');
+  }
+  el.themeBtn.addEventListener('click', function () {
+    settings.theme = effectiveTheme() === 'dark' ? 'light' : 'dark';
+    persist();
+    applyTheme();
+  });
+
+  /* ----- sound effects (Web Audio, no asset files) ----- */
+  var audioCtx = null;
+  var SFX = {
+    placeX: [[340, 0.08, 0]],
+    placeO: [[460, 0.08, 0]],
+    win:    [[523, 0.12, 0], [659, 0.12, 0.09], [784, 0.2, 0.18]],
+    lose:   [[392, 0.12, 0], [311, 0.12, 0.09], [233, 0.22, 0.18]],
+    draw:   [[440, 0.1, 0], [440, 0.12, 0.14]],
+    msg:    [[880, 0.05, 0], [1175, 0.07, 0.06]],
+    join:   [[523, 0.08, 0], [784, 0.12, 0.08]]
+  };
+  function sfx(name) {
+    if (settings.muted || !SFX[name]) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var t0 = audioCtx.currentTime;
+      SFX[name].forEach(function (s) {
+        var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.value = s[0];
+        g.gain.setValueAtTime(0.0001, t0 + s[2]);
+        g.gain.exponentialRampToValueAtTime(0.12, t0 + s[2] + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + s[2] + s[1]);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start(t0 + s[2]);
+        o.stop(t0 + s[2] + s[1] + 0.05);
+      });
+    } catch (e) { /* no audio available */ }
+  }
+  function renderSoundBtn() {
+    el.soundBtn.textContent = settings.muted ? '🔇' : '🔊';
+    el.soundBtn.setAttribute('aria-label', settings.muted ? 'Unmute sounds' : 'Mute sounds');
+  }
+  el.soundBtn.addEventListener('click', function () {
+    settings.muted = !settings.muted;
+    persist();
+    renderSoundBtn();
+    sfx('placeO'); /* audible confirmation when unmuting */
+  });
 
   /* ----- modal & toasts ----- */
   var modalHandlers = { ok: null, cancel: null };
@@ -134,7 +206,8 @@
   }
 
   /* ----- online play (WebRTC via PeerJS) ----- */
-  var online = { peer: null, conn: null, role: null, key: null, ready: false, peerName: null };
+  var online = { peer: null, conn: null, role: null, key: null, ready: false, peerName: null,
+    byed: false, reconnecting: false, reconnT: null, rejected: false };
   var pendingOut = { restart: false, reset: false, size: null };
 
   function friendName() { return online.peerName || 'Friend'; }
@@ -173,6 +246,20 @@
     });
   }
 
+  /* full game state, so a (re)joining guest can pick up exactly where things stand */
+  function helloState() {
+    return {
+      t: 'hello',
+      name: settings.name,
+      size: settings.size,
+      board: board.slice(),
+      turn: turn,
+      scores: { x: scores.x, o: scores.o, d: scores.d },
+      starter: starter,
+      over: over
+    };
+  }
+
   function hostGame() {
     online.peer = new Peer('ttt-' + online.key);
     online.peer.on('open', function () {
@@ -180,16 +267,30 @@
       statusForTurn();
     });
     online.peer.on('connection', function (c) {
-      if (online.conn) { try { c.close(); } catch (e) {} return; } /* seat taken */
+      if (online.conn) {                                /* seat taken — tell them who's playing */
+        c.on('open', function () {
+          try { c.send({ t: 'full', players: [settings.name || 'Player 1', online.peerName || 'Player 2'] }); } catch (e) {}
+          setTimeout(function () { try { c.close(); } catch (e) {} }, 300);
+        });
+        return;
+      }
       online.conn = c;
       bindConn(c);
       c.on('open', function () {
         online.ready = true;
-        note('Friend joined! You are X — you start.');
-        c.send({ t: 'hello', size: settings.size, name: settings.name });
+        online.byed = false;
+        if (online.peerName) {
+          note(friendName() + ' is back — game on!');
+        } else {
+          note('Friend joined! You are X — you start.');
+        }
+        c.send(helloState());
         showChat();
-        newRound();
+        statusForTurn();
       });
+    });
+    online.peer.on('disconnected', function () { /* lost the broker socket — revive it */
+      try { online.peer.reconnect(); } catch (e) {}
     });
     online.peer.on('error', peerError);
   }
@@ -202,6 +303,9 @@
       bindConn(c);
       c.on('open', function () { note('Connected — setting up the board…'); });
     });
+    online.peer.on('disconnected', function () {
+      try { online.peer.reconnect(); } catch (e) {}
+    });
     online.peer.on('error', peerError);
   }
 
@@ -213,13 +317,26 @@
       online.ready = false;
       pendingOut.restart = pendingOut.reset = false;
       pendingOut.size = null;
-      if (settings.mode === 'online') {
+      if (settings.mode !== 'online') return;
+      if (online.rejected) return;      /* seat was taken — the 'full' note stays up */
+      if (online.byed) {                /* deliberate leave — no reconnect */
         note(online.role === 'host'
-          ? friendName() + ' disconnected. Share the key to play again.'
-          : friendName() + ' (host) disconnected.');
-        setStatus(friendName() + ' disconnected', '');
+          ? friendName() + ' left the game. Share the key to play again.'
+          : friendName() + ' left the game.');
+        setStatus(friendName() + ' left', '');
         addChat('sys', friendName() + ' left the game');
         toast(friendName() + ' left the game');
+        return;
+      }
+      /* connection dropped — try to recover */
+      addChat('sys', 'Connection lost');
+      setStatus('Connection lost', '');
+      if (online.role === 'host') {
+        note('Connection lost — waiting for ' + friendName() + ' to rejoin…');
+        toast('Connection lost — waiting for ' + friendName() + ' to rejoin');
+      } else {
+        online.reconnecting = true;
+        tryReconnect(1);
       }
     };
     c.on('data', onMessage);
@@ -228,6 +345,33 @@
     c.on('iceStateChanged', function (state) {
       if (state === 'disconnected' || state === 'failed' || state === 'closed') gone();
     });
+  }
+
+  function tryReconnect(attempt) {
+    if (settings.mode !== 'online' || online.conn || !online.peer || online.peer.destroyed) return;
+    if (online.peer.disconnected) { try { online.peer.reconnect(); } catch (e) {} }
+    if (attempt > 10) {
+      online.reconnecting = false;
+      note('Could not reconnect. Ask ' + friendName() + ' for a fresh invite link.');
+      setStatus('Disconnected', '');
+      return;
+    }
+    note('Connection lost — reconnecting… (try ' + attempt + ' of 10)');
+    var c = online.peer.connect('ttt-' + online.key, { reliable: true });
+    var opened = false;
+    c.on('open', function () {
+      opened = true;
+      online.conn = c;
+      online.byed = false;
+      bindConn(c);
+      note('Reconnected — restoring the game…');
+    });
+    c.on('error', function () { /* swallowed; retry below */ });
+    setTimeout(function () {
+      if (opened || online.conn) return;
+      try { c.close(); } catch (e) {}
+      online.reconnT = setTimeout(function () { tryReconnect(attempt + 1); }, 2000);
+    }, 3000);
   }
 
   function peerError(err) {
@@ -239,6 +383,7 @@
       return;
     }
     if (err.type === 'peer-unavailable') {
+      if (online.reconnecting) return; /* retry loop handles messaging */
       note('No game found for that key. Ask your friend for a fresh link.');
     } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
       note('Could not reach the matchmaking server. Check your internet and reload.');
@@ -248,6 +393,7 @@
   }
 
   function teardownOnline() {
+    if (online.reconnT) { clearTimeout(online.reconnT); online.reconnT = null; }
     if (online.conn) { try { online.conn.close(); } catch (e) {} }
     if (online.peer) { try { online.peer.destroy(); } catch (e) {} }
     online.peer = null;
@@ -255,6 +401,9 @@
     online.role = null;
     online.ready = false;
     online.peerName = null;
+    online.byed = false;
+    online.reconnecting = false;
+    online.rejected = false;
     pendingOut.restart = pendingOut.reset = false;
     pendingOut.size = null;
     el.onlinePanel.classList.add('hidden');
@@ -266,26 +415,78 @@
     renderScores();
   }
 
+  /* guest: adopt the host's game state (fresh join or reconnect) */
+  function restoreState(msg) {
+    starter = msg.starter === 'o' ? 'o' : 'x';
+    var s = msg.scores || {};
+    scores = {
+      x: s.x >= 0 ? s.x | 0 : 0,
+      o: s.o >= 0 ? s.o | 0 : 0,
+      d: s.d >= 0 ? s.d | 0 : 0
+    };
+    buildBoard();
+    newRound();
+    var b = Array.isArray(msg.board) ? msg.board : [];
+    for (var i = 0; i < N * N; i++) {
+      var v = b[i] === 'x' ? 'x' : (b[i] === 'o' ? 'o' : null);
+      if (v) {
+        board[i] = v;
+        drawMark(i, v);
+      }
+    }
+    turn = msg.turn === 'o' ? 'o' : 'x';
+    el.arena.classList.remove('turn-x', 'turn-o');
+    el.arena.classList.add('turn-' + turn);
+    renderScores();
+    if (msg.over) {
+      var w = findWin(board);
+      if (w || !emptyCells(board).length) {
+        finishRound(w);
+        el.rematchBtn.classList.remove('hidden');
+      } else {
+        statusForTurn();
+      }
+    } else {
+      statusForTurn();
+    }
+  }
+
   function onMessage(msg) {
     if (!msg || typeof msg !== 'object' || settings.mode !== 'online') return;
-    if (msg.t === 'hello') {          /* guest: host sent the game setup */
-      if (BOARDS[msg.size]) settings.size = +msg.size;
+    if (msg.t === 'hello') {          /* guest: host sent name + full game state */
+      var wasReconnect = online.reconnecting;
+      online.reconnecting = false;
+      online.byed = false;
       online.peerName = cleanName(msg.name, 'Friend');
+      if (BOARDS[msg.size]) settings.size = +msg.size;
       syncSeg(el.sizeSeg, 'size', String(settings.size));
-      scores = { x: 0, o: 0, d: 0 };
       online.ready = true;
-      note('Connected! You are O — ' + friendName() + ' starts.');
-      send({ t: 'hi', name: settings.name });
+      send({ t: 'hi', name: settings.name, re: wasReconnect });
       showChat();
-      addChat('sys', 'Connected with ' + friendName());
-      toast('Connected with ' + friendName() + '!');
-      buildBoard();
-      newRound();
+      if (wasReconnect) {
+        addChat('sys', 'Reconnected');
+        toast('Reconnected!');
+        note('Reconnected — game on!');
+      } else {
+        addChat('sys', 'Connected with ' + friendName());
+        toast('Connected with ' + friendName() + '!');
+        note('Connected! You are O — ' + friendName() + ' plays X.');
+        sfx('join');
+      }
+      restoreState(msg);
     } else if (msg.t === 'hi') {      /* host: guest introduced themselves */
       online.peerName = cleanName(msg.name, 'Friend');
-      note(friendName() + ' joined! You are X — you start.');
-      addChat('sys', friendName() + ' joined');
-      toast(friendName() + ' joined the game!');
+      if (msg.re) {
+        note(friendName() + ' is back — game on!');
+        addChat('sys', friendName() + ' reconnected');
+        toast(friendName() + ' reconnected!');
+        statusForTurn();
+      } else {
+        note(friendName() + ' joined! You are X — you start.');
+        addChat('sys', friendName() + ' joined');
+        toast(friendName() + ' joined the game!');
+        sfx('join');
+      }
       renderScores();
     } else if (msg.t === 'sizeReq') {  /* host proposes a board change */
       if (online.role !== 'guest' || !BOARDS[msg.size]) return;
@@ -358,7 +559,16 @@
       if (!pendingOut.reset) return;
       pendingOut.reset = false;
       toast(friendName() + ' declined the score reset.');
+    } else if (msg.t === 'full') {    /* we were the third wheel */
+      online.rejected = true;
+      var who = Array.isArray(msg.players)
+        ? msg.players.map(function (n) { return cleanName(n, 'Player'); }).join(' & ')
+        : 'Two players';
+      note('This game is full — ' + who + ' are already playing. Ask for a new key or start your own game.');
+      setStatus('Game is full', '');
+      toast('Game is full — ' + who + ' are already playing');
     } else if (msg.t === 'bye') {     /* opponent left deliberately */
+      online.byed = true;
       if (online.conn) { try { online.conn.close(); } catch (e) {} }
     } else if (msg.t === 'chat') {
       if (!online.ready || typeof msg.v !== 'string') return;
@@ -366,6 +576,7 @@
       if (text) {
         addChat('them', text);
         toast(friendName() + ': ' + (text.length > 60 ? text.slice(0, 60) + '…' : text));
+        sfx('msg');
       }
     }
   }
@@ -419,6 +630,35 @@
   }
   bindSayButtons(el.chatQuick);
   bindSayButtons(el.chatEmoji);
+
+  /* ----- join a friend's game by typing their key ----- */
+  function joinByKey() {
+    var k = el.joinInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    if (k.length < 4) {
+      note('Enter the 6-character game key your friend shared.');
+      el.joinInput.focus();
+      return;
+    }
+    if (online.role === 'host' && k === online.key) {
+      note("That's your own game key — send it to a friend instead!");
+      return;
+    }
+    el.joinInput.value = '';
+    if (online.ready) {
+      confirmThen('Leave the current game?',
+        'You are playing with ' + friendName() + '. Joining another game ends this one.',
+        function () {
+          send({ t: 'bye' });
+          startOnline('guest', k);
+        }, 'Join new game');
+      return;
+    }
+    startOnline('guest', k);
+  }
+  el.joinBtn.addEventListener('click', joinByKey);
+  el.joinInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); joinByKey(); }
+  });
 
   el.copyLink.addEventListener('click', function () {
     var url = inviteUrl();
@@ -564,13 +804,39 @@
     }
     return picks[Math.floor(Math.random() * picks.length)];
   }
+  /* would placing `mark` at i win? — checks only the 4 lines through i */
+  function winsAt(b, i, mark) {
+    var r0 = (i / N) | 0, c0 = i % N;
+    for (var d = 0; d < DIRS.length; d++) {
+      var dc = DIRS[d][0], dr = DIRS[d][1], cnt = 1;
+      var r = r0 + dr, c = c0 + dc;
+      while (r >= 0 && r < N && c >= 0 && c < N && b[r * N + c] === mark) { cnt++; r += dr; c += dc; }
+      r = r0 - dr; c = c0 - dc;
+      while (r >= 0 && r < N && c >= 0 && c < N && b[r * N + c] === mark) { cnt++; r -= dr; c -= dc; }
+      if (cnt >= K) return true;
+    }
+    return false;
+  }
   function immediateWin(b, mark) {
     var empties = emptyCells(b);
     for (var j = 0; j < empties.length; j++) {
-      b[empties[j]] = mark;
-      var won = !!findWin(b);
-      b[empties[j]] = null;
-      if (won) return empties[j];
+      if (winsAt(b, empties[j], mark)) return empties[j];
+    }
+    return -1;
+  }
+  /* a move that leaves `mark` with two or more winning replies is unstoppable */
+  function findDoubleThreat(b, mark) {
+    var empties = emptyCells(b);
+    for (var j = 0; j < empties.length; j++) {
+      var i = empties[j];
+      b[i] = mark;
+      var threats = 0;
+      for (var k = 0; k < empties.length && threats < 2; k++) {
+        var e = empties[k];
+        if (e !== i && winsAt(b, e, mark)) threats++;
+      }
+      b[i] = null;
+      if (threats >= 2) return i;
     }
     return -1;
   }
@@ -620,8 +886,12 @@
     if (settings.diff === 'tricky') {
       return empties[Math.floor(Math.random() * empties.length)];
     }
-    /* perfect: exact search on 3x3, strong heuristic on bigger boards */
+    /* perfect: exact search on 3x3; on bigger boards, threat search + heuristic */
     if (N === 3) return bestMove(board.slice(), cpuMark());
+    var myFork = findDoubleThreat(board, cpuMark());
+    if (myFork >= 0) return myFork;
+    var theirFork = findDoubleThreat(board, humanMark());
+    if (theirFork >= 0) return theirFork;
     return heuristicMove();
   }
 
@@ -688,19 +958,21 @@
   function newRound() {
     if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; }
     board = new Array(N * N).fill(null);
-    turn = 'x';
+    turn = settings.mode === 'cpu' ? 'x' : starter; /* cpu mode: order picker decides via marks */
     over = false;
+    lastCell = -1;
+    el.rematchBtn.classList.add('hidden');
     el.strike.classList.remove('show', 'win-x', 'win-o');
     el.strikeLine.setAttribute('x1', 0); el.strikeLine.setAttribute('y1', 0);
     el.strikeLine.setAttribute('x2', 0); el.strikeLine.setAttribute('y2', 0);
     for (var j = 0; j < cells.length; j++) {
-      cells[j].classList.remove('filled', 'dim', 'hit');
+      cells[j].classList.remove('filled', 'dim', 'hit', 'last');
       var m = cells[j].querySelector('.mark');
       if (m) m.remove();
       cells[j].setAttribute('aria-label', cellLabel(j));
     }
-    el.arena.classList.remove('locked', 'turn-o');
-    el.arena.classList.add('turn-x');
+    el.arena.classList.remove('locked', 'turn-o', 'turn-x');
+    el.arena.classList.add('turn-' + turn);
     renderScores();
     statusForTurn();
     if (settings.mode === 'cpu' && turn === cpuMark()) scheduleCpu();
@@ -720,6 +992,10 @@
   function place(i) {
     board[i] = turn;
     drawMark(i, turn);
+    sfx(turn === 'x' ? 'placeX' : 'placeO');
+    if (lastCell >= 0 && cells[lastCell]) cells[lastCell].classList.remove('last');
+    cells[i].classList.add('last');
+    lastCell = i;
     var w = findWin(board);
     if (w) return endRound(w);
     if (!emptyCells(board).length) return endRound(null);
@@ -740,10 +1016,25 @@
   }
 
   function endRound(win) {
+    starter = win ? other(win.mark) : other(starter); /* loser starts next; draws swap — both peers run this in step */
+    if (win) scores[win.mark] += 1; else scores.d += 1;
+    finishRound(win);
+    renderScores();
+    persist();
+    if (settings.mode !== 'online' || online.ready) el.rematchBtn.classList.remove('hidden');
+    if (win) {
+      var name = playerName(win.mark);
+      sfx(name === 'You' || settings.mode === 'pvp' ? 'win' : 'lose');
+    } else {
+      sfx('draw');
+    }
+  }
+
+  /* display-only round ending — also used when restoring a finished round */
+  function finishRound(win) {
     over = true;
     el.arena.classList.add('locked');
     if (win) {
-      scores[win.mark] += 1;
       var c = centers(win.line);
       el.strikeLine.setAttribute('x1', c.x1); el.strikeLine.setAttribute('y1', c.y1);
       el.strikeLine.setAttribute('x2', c.x2); el.strikeLine.setAttribute('y2', c.y2);
@@ -757,11 +1048,8 @@
         (name === 'Computer' ? 'Computer takes the round.' : name + ' wins the round!'),
         'turn-' + win.mark);
     } else {
-      scores.d += 1;
       setStatus('A draw. Nobody blinked.', '');
     }
-    renderScores();
-    persist();
   }
 
   function centers(line) {
@@ -796,6 +1084,7 @@
   function switchMode(v) {
     settings.mode = v;
     scores = { x: 0, o: 0, d: 0 };
+    starter = Math.random() < 0.5 ? 'x' : 'o'; /* fresh opponent, fresh coin toss */
     el.diffSeg.classList.toggle('hidden', v !== 'cpu');
     el.orderSeg.classList.toggle('hidden', v !== 'cpu');
     if (v === 'online') {
@@ -860,7 +1149,7 @@
     newRound();
   });
 
-  document.getElementById('newRound').addEventListener('click', function () {
+  function requestNewRound() {
     if (settings.mode === 'online') {
       if (!online.ready || pendingOut.restart) return;
       pendingOut.restart = true;
@@ -873,7 +1162,9 @@
     } else {
       newRound();
     }
-  });
+  }
+  document.getElementById('newRound').addEventListener('click', requestNewRound);
+  el.rematchBtn.addEventListener('click', requestNewRound);
   document.getElementById('resetAll').addEventListener('click', function () {
     if (settings.mode === 'online') {
       if (!online.ready || pendingOut.reset) return;
@@ -915,6 +1206,8 @@
     }
   });
 
+  renderSoundBtn();
+  applyTheme();
   buildBoard();
   newRound();
   askName(function () {

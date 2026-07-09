@@ -55,6 +55,11 @@
 </head>
 <body>
 
+<div class="corner-btns">
+  <button type="button" class="corner-btn" id="themeBtn" aria-label="Toggle dark mode">🌙</button>
+  <button type="button" class="corner-btn" id="soundBtn" aria-label="Toggle sound">🔊</button>
+</div>
+
 <main class="stage">
   <header class="masthead">
     <h1 class="wordmark">Tic <span class="dot-x">·</span> Tac <span class="dot-o">·</span> Toe</h1>
@@ -92,10 +97,15 @@
       <code class="key" id="gameKey">······</code>
       <button type="button" class="btn quiet mini" id="copyLink">Copy invite link</button>
     </div>
+    <div class="key-row">
+      <span class="key-lbl">Have a key?</span>
+      <input type="text" class="join-input" id="joinInput" maxlength="8" placeholder="ABC123" autocomplete="off" spellcheck="false" aria-label="Enter a friend's game key">
+      <button type="button" class="btn quiet mini" id="joinBtn">Join</button>
+    </div>
     <p class="online-note" id="onlineNote">Creating game…</p>
   </div>
 
-  <p class="status turn-x" id="status" aria-live="polite"><span class="chip" aria-hidden="true"></span><span id="statusText">X to move</span></p>
+  <p class="status turn-x" id="status" aria-live="polite"><span class="chip" aria-hidden="true"></span><span id="statusText">X to move</span><button type="button" class="btn primary mini hidden" id="rematchBtn">Play again</button></p>
 
   <div class="playfield">
   <div class="arena turn-x" id="arena">

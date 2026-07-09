@@ -616,3 +616,54 @@ body {
   animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .toast.gone { opacity: 0; transition: opacity 0.4s; }
+
+/* ---------- last move highlight ---------- */
+.cell.last { background: var(--seg-bg); transition: background 0.3s; }
+
+/* ---------- rematch button ---------- */
+#rematchBtn { margin-left: 6px; }
+#rematchBtn.hidden { display: none; }
+
+/* ---------- corner buttons (theme + sound) ---------- */
+.corner-btns {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  display: flex;
+  gap: 8px;
+}
+.corner-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 1.05rem;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.1s;
+}
+.corner-btn:active { transform: scale(0.92); }
+.corner-btn:focus-visible { outline: 2px solid var(--o); outline-offset: 2px; }
+
+/* ---------- join-by-key input ---------- */
+.join-input {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  width: 110px;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+.join-input:focus-visible { outline: 2px solid var(--o); outline-offset: 1px; }
+.join-input::placeholder { color: var(--muted); letter-spacing: 0.12em; }
