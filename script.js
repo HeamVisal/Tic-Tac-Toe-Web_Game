@@ -39,8 +39,170 @@
     modeSeg: document.getElementById('modeSeg'),
     sizeSeg: document.getElementById('sizeSeg'),
     diffSeg: document.getElementById('diffSeg'),
-    orderSeg: document.getElementById('orderSeg')
+    orderSeg: document.getElementById('orderSeg'),
+    onlinePanel: document.getElementById('onlinePanel'),
+    gameKey: document.getElementById('gameKey'),
+    onlineNote: document.getElementById('onlineNote'),
+    copyLink: document.getElementById('copyLink')
   };
+
+  /* ----- online play (WebRTC via PeerJS) ----- */
+  var online = { peer: null, conn: null, role: null, key: null, ready: false };
+  var KEY_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+  function genKey() {
+    var k = '';
+    for (var j = 0; j < 6; j++) k += KEY_CHARS[Math.floor(Math.random() * KEY_CHARS.length)];
+    return k;
+  }
+  function myOnlineMark() { return online.role === 'host' ? 'x' : 'o'; }
+  function inviteUrl() { return location.origin + location.pathname + '?join=' + online.key; }
+  function send(msg) {
+    if (online.conn && online.conn.open) online.conn.send(msg);
+  }
+  function note(text) { el.onlineNote.textContent = text; }
+
+  function loadPeerJs(cb) {
+    if (window.Peer) return cb();
+    var s = document.createElement('script');
+    s.src = './assets/peerjs.min.js';
+    s.onload = cb;
+    s.onerror = function () { note('Could not load the connection library. Check your internet and reload.'); };
+    document.head.appendChild(s);
+  }
+
+  function startOnline(role, key) {
+    teardownOnline();
+    online.role = role;
+    online.key = key || genKey();
+    el.onlinePanel.classList.remove('hidden');
+    el.gameKey.textContent = online.key;
+    note(role === 'host' ? 'Creating game…' : 'Joining game…');
+    loadPeerJs(function () {
+      if (role === 'host') hostGame(); else joinGame();
+    });
+  }
+
+  function hostGame() {
+    online.peer = new Peer('ttt-' + online.key);
+    online.peer.on('open', function () {
+      note('Waiting for a friend to join…');
+      statusForTurn();
+    });
+    online.peer.on('connection', function (c) {
+      if (online.conn) { try { c.close(); } catch (e) {} return; } /* seat taken */
+      online.conn = c;
+      bindConn(c);
+      c.on('open', function () {
+        online.ready = true;
+        note('Friend joined! You are X — you start.');
+        c.send({ t: 'hello', size: settings.size });
+        newRound();
+      });
+    });
+    online.peer.on('error', peerError);
+  }
+
+  function joinGame() {
+    online.peer = new Peer();
+    online.peer.on('open', function () {
+      var c = online.peer.connect('ttt-' + online.key, { reliable: true });
+      online.conn = c;
+      bindConn(c);
+      c.on('open', function () { note('Connected — setting up the board…'); });
+    });
+    online.peer.on('error', peerError);
+  }
+
+  function bindConn(c) {
+    var gone = function () {
+      if (online.conn !== c) return;
+      try { c.close(); } catch (e) {}
+      online.conn = null;
+      online.ready = false;
+      if (settings.mode === 'online') {
+        note(online.role === 'host' ? 'Friend disconnected. Share the key to play again.' : 'Host disconnected.');
+        setStatus('Friend disconnected', '');
+      }
+    };
+    c.on('data', onMessage);
+    c.on('close', gone);
+    /* 'close' alone misses abrupt exits (tab killed, network drop) — watch ICE too */
+    c.on('iceStateChanged', function (state) {
+      if (state === 'disconnected' || state === 'failed' || state === 'closed') gone();
+    });
+  }
+
+  function peerError(err) {
+    if (err.type === 'unavailable-id') { /* key collision: pick another */
+      try { online.peer.destroy(); } catch (e) {}
+      online.key = genKey();
+      el.gameKey.textContent = online.key;
+      hostGame();
+      return;
+    }
+    if (err.type === 'peer-unavailable') {
+      note('No game found for that key. Ask your friend for a fresh link.');
+    } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
+      note('Could not reach the matchmaking server. Check your internet and reload.');
+    } else {
+      note('Connection error (' + err.type + '). Reload and try again.');
+    }
+  }
+
+  function teardownOnline() {
+    if (online.conn) { try { online.conn.close(); } catch (e) {} }
+    if (online.peer) { try { online.peer.destroy(); } catch (e) {} }
+    online.peer = null;
+    online.conn = null;
+    online.role = null;
+    online.ready = false;
+    el.onlinePanel.classList.add('hidden');
+  }
+
+  function onMessage(msg) {
+    if (!msg || typeof msg !== 'object' || settings.mode !== 'online') return;
+    if (msg.t === 'hello') {          /* guest: host sent the game setup */
+      if (BOARDS[msg.size]) settings.size = +msg.size;
+      syncSeg(el.sizeSeg, 'size', String(settings.size));
+      scores = { x: 0, o: 0, d: 0 };
+      online.ready = true;
+      note('Connected! You are O — your friend starts.');
+      buildBoard();
+      newRound();
+    } else if (msg.t === 'config') {  /* host changed the board size */
+      if (online.role !== 'guest' || !BOARDS[msg.size]) return;
+      settings.size = +msg.size;
+      syncSeg(el.sizeSeg, 'size', String(settings.size));
+      scores = { x: 0, o: 0, d: 0 };
+      buildBoard();
+      newRound();
+    } else if (msg.t === 'move') {
+      var i = msg.i | 0;
+      if (over || !online.ready) return;
+      if (turn === myOnlineMark()) return;          /* only on their turn */
+      if (i < 0 || i >= board.length || board[i]) return;
+      place(i);
+    } else if (msg.t === 'restart') {
+      newRound();
+    } else if (msg.t === 'resetScores') {
+      scores = { x: 0, o: 0, d: 0 };
+      renderScores();
+    }
+  }
+
+  el.copyLink.addEventListener('click', function () {
+    var url = inviteUrl();
+    var done = function () {
+      el.copyLink.textContent = 'Copied!';
+      setTimeout(function () { el.copyLink.textContent = 'Copy invite link'; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link:', url); });
+    } else {
+      window.prompt('Copy this link:', url);
+    }
+  });
 
   var cells = [];
   var GX = '<svg class="ghost gx" viewBox="0 0 100 100" aria-hidden="true"><path d="M26 26 74 74"></path><path d="M74 26 26 74"></path></svg>';
@@ -106,6 +268,7 @@
 
   function playerName(mark) {
     if (settings.mode === 'pvp') return mark.toUpperCase();
+    if (settings.mode === 'online') return mark === myOnlineMark() ? 'You' : 'Friend';
     return mark === humanMark() ? 'You' : 'Computer';
   }
 
@@ -259,6 +422,9 @@
     if (settings.mode === 'pvp') {
       el.lblX.textContent = 'Player X';
       el.lblO.textContent = 'Player O';
+    } else if (settings.mode === 'online') {
+      el.lblX.textContent = (online.role === 'host' ? 'You' : 'Friend') + ' · X';
+      el.lblO.textContent = (online.role === 'host' ? 'Friend' : 'You') + ' · O';
     } else {
       el.lblX.textContent = (humanMark() === 'x' ? 'You' : 'Computer') + ' · X';
       el.lblO.textContent = (humanMark() === 'o' ? 'You' : 'Computer') + ' · O';
@@ -270,6 +436,15 @@
     } catch (e) { /* ignore */ }
   }
   function statusForTurn() {
+    if (settings.mode === 'online') {
+      if (!online.ready) {
+        setStatus(online.role === 'guest' ? 'Connecting…' : 'Waiting for a friend…', '');
+        return;
+      }
+      setStatus(turn === myOnlineMark() ? 'Your move' : 'Friend is thinking…',
+        turn === myOnlineMark() ? 'turn-' + turn : 'turn-' + turn + ' thinking');
+      return;
+    }
     if (settings.mode === 'cpu') {
       setStatus(turn === humanMark() ? 'Your move' : 'Computer is thinking…',
         turn === humanMark() ? 'turn-' + turn : 'turn-' + turn + ' thinking');
@@ -304,6 +479,10 @@
     var i = +e.currentTarget.dataset.i;
     if (over || board[i]) return;
     if (settings.mode === 'cpu' && turn !== humanMark()) return;
+    if (settings.mode === 'online') {
+      if (!online.ready || turn !== myOnlineMark()) return;
+      send({ t: 'move', i: i });
+    }
     place(i);
   }
 
@@ -389,16 +568,29 @@
     scores = { x: 0, o: 0, d: 0 };
     el.diffSeg.classList.toggle('hidden', v !== 'cpu');
     el.orderSeg.classList.toggle('hidden', v !== 'cpu');
-    persist();
-    newRound();
+    if (v === 'online') {
+      persist();
+      startOnline('host');
+      newRound();
+    } else {
+      teardownOnline();
+      persist();
+      newRound();
+    }
   });
   bindSeg(el.sizeSeg, 'size', function (v) {
     if (+v === +settings.size) return;
+    if (settings.mode === 'online' && online.role === 'guest') {
+      syncSeg(el.sizeSeg, 'size', String(settings.size)); /* host picks the board */
+      note('Only the host can change the board size.');
+      return;
+    }
     settings.size = +v;
     scores = { x: 0, o: 0, d: 0 };
     persist();
     buildBoard();
     newRound();
+    if (settings.mode === 'online' && online.ready) send({ t: 'config', size: settings.size });
   });
   bindSeg(el.diffSeg, 'diff', function (v) {
     if (v === settings.diff) return;
@@ -413,14 +605,37 @@
     newRound();
   });
 
-  document.getElementById('newRound').addEventListener('click', newRound);
+  document.getElementById('newRound').addEventListener('click', function () {
+    if (settings.mode === 'online') {
+      if (!online.ready) return;
+      send({ t: 'restart' });
+    }
+    newRound();
+  });
   document.getElementById('resetAll').addEventListener('click', function () {
     scores = { x: 0, o: 0, d: 0 };
     persist();
+    if (settings.mode === 'online') {
+      send({ t: 'resetScores' });
+      renderScores();
+      return; /* don't wipe the board mid-game */
+    }
     newRound();
   });
 
   /* ----- boot ----- */
+  var joinKey = null;
+  try {
+    var q = new URLSearchParams(location.search).get('join');
+    if (q) joinKey = q.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || null;
+  } catch (e) { /* ancient browser */ }
+
+  if (joinKey) {
+    settings.mode = 'online';
+  } else if (settings.mode === 'online') {
+    settings.mode = 'pvp'; /* an old key is useless after reload */
+  }
+
   syncSeg(el.modeSeg, 'mode', settings.mode);
   syncSeg(el.sizeSeg, 'size', String(settings.size));
   syncSeg(el.diffSeg, 'diff', settings.diff);
@@ -428,5 +643,6 @@
   el.diffSeg.classList.toggle('hidden', settings.mode !== 'cpu');
   el.orderSeg.classList.toggle('hidden', settings.mode !== 'cpu');
   buildBoard();
+  if (joinKey) startOnline('guest', joinKey);
   newRound();
 })();

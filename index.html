@@ -64,6 +64,7 @@
     <div class="seg" id="modeSeg" role="group" aria-label="Opponent">
       <button type="button" data-mode="pvp" aria-pressed="true">Two players</button>
       <button type="button" data-mode="cpu" aria-pressed="false">Vs computer</button>
+      <button type="button" data-mode="online" aria-pressed="false">Online friend</button>
     </div>
     <div class="seg" id="sizeSeg" role="group" aria-label="Board size">
       <button type="button" data-size="3" aria-pressed="true">3×3</button>
@@ -81,6 +82,15 @@
       <button type="button" data-order="cpu" aria-pressed="false">Computer starts</button>
     </div>
   </nav>
+
+  <div class="online-panel hidden" id="onlinePanel" aria-live="polite">
+    <div class="key-row">
+      <span class="key-lbl">Game key</span>
+      <code class="key" id="gameKey">······</code>
+      <button type="button" class="btn quiet mini" id="copyLink">Copy invite link</button>
+    </div>
+    <p class="online-note" id="onlineNote">Creating game…</p>
+  </div>
 
   <p class="status turn-x" id="status" aria-live="polite"><span class="chip" aria-hidden="true"></span><span id="statusText">X to move</span></p>
 
@@ -114,7 +124,8 @@
       horizontally, vertically or diagonally — wins the round.</p>
     <p>Pick your challenge: the classic <strong>3×3</strong> board needs three in a row, <strong>5×5</strong>
       needs four, and the big <strong>7×7</strong> and <strong>10×10</strong> boards need five in a row.
-      Play against a friend on the same device, or face the computer on easy, tricky or perfect difficulty.
+      Play against a friend on the same device, invite an online friend with a shared link,
+      or face the computer on easy, tricky or perfect difficulty.
       Scores are saved in your browser between visits. Free to play, no ads, no sign-up.</p>
   </footer>
 </main>
