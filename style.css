@@ -667,3 +667,30 @@ body {
 }
 .join-input:focus-visible { outline: 2px solid var(--o); outline-offset: 1px; }
 .join-input::placeholder { color: var(--muted); letter-spacing: 0.12em; }
+
+/* ---------- language button ---------- */
+.corner-btn.lang-btn { width: auto; padding: 0 14px; font-size: 0.8rem; font-weight: 600; }
+
+/* ---------- move timer pill ---------- */
+.timer-pill {
+  margin-left: 6px;
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--seg-bg);
+  color: var(--ink);
+}
+.timer-pill.urgent { background: var(--x); color: #fff; }
+.timer-pill.hidden { display: none; }
+
+/* ---------- confetti ---------- */
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 70;
+}

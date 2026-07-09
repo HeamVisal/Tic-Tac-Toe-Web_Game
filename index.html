@@ -56,6 +56,7 @@
 <body>
 
 <div class="corner-btns">
+  <button type="button" class="corner-btn lang-btn" id="langBtn" aria-label="Switch language">ខ្មែរ</button>
   <button type="button" class="corner-btn" id="themeBtn" aria-label="Toggle dark mode">🌙</button>
   <button type="button" class="corner-btn" id="soundBtn" aria-label="Toggle sound">🔊</button>
 </div>
@@ -68,9 +69,9 @@
 
   <nav class="controls" aria-label="Game settings">
     <div class="seg" id="modeSeg" role="group" aria-label="Opponent">
-      <button type="button" data-mode="pvp" aria-pressed="true">Two players</button>
-      <button type="button" data-mode="cpu" aria-pressed="false">Vs computer</button>
-      <button type="button" data-mode="online" aria-pressed="false">Online friend</button>
+      <button type="button" data-mode="pvp" aria-pressed="true" data-i18n="modePvp">Two players</button>
+      <button type="button" data-mode="cpu" aria-pressed="false" data-i18n="modeCpu">Vs computer</button>
+      <button type="button" data-mode="online" aria-pressed="false" data-i18n="modeOnline">Online friend</button>
     </div>
     <div class="seg" id="sizeSeg" role="group" aria-label="Board size">
       <button type="button" data-size="3" aria-pressed="true">3×3</button>
@@ -81,31 +82,37 @@
       <button type="button" data-size="20" aria-pressed="false">20×20</button>
     </div>
     <div class="seg hidden" id="diffSeg" role="group" aria-label="Difficulty">
-      <button type="button" data-diff="easy" aria-pressed="false">Easy</button>
-      <button type="button" data-diff="tricky" aria-pressed="true">Tricky</button>
-      <button type="button" data-diff="perfect" aria-pressed="false">Perfect</button>
+      <button type="button" data-diff="easy" aria-pressed="false" data-i18n="diffEasy">Easy</button>
+      <button type="button" data-diff="tricky" aria-pressed="true" data-i18n="diffTricky">Tricky</button>
+      <button type="button" data-diff="perfect" aria-pressed="false" data-i18n="diffPerfect">Perfect</button>
     </div>
     <div class="seg hidden" id="orderSeg" role="group" aria-label="Who starts">
-      <button type="button" data-order="human" aria-pressed="true">You start</button>
-      <button type="button" data-order="cpu" aria-pressed="false">Computer starts</button>
+      <button type="button" data-order="human" aria-pressed="true" data-i18n="orderYou">You start</button>
+      <button type="button" data-order="cpu" aria-pressed="false" data-i18n="orderCpu">Computer starts</button>
+    </div>
+    <div class="seg hidden" id="timerSeg" role="group" aria-label="Move timer">
+      <button type="button" data-timer="0" aria-pressed="true" data-i18n="timerOff">No timer</button>
+      <button type="button" data-timer="15" aria-pressed="false">15s</button>
+      <button type="button" data-timer="30" aria-pressed="false">30s</button>
+      <button type="button" data-timer="60" aria-pressed="false">60s</button>
     </div>
   </nav>
 
   <div class="online-panel hidden" id="onlinePanel" aria-live="polite">
     <div class="key-row">
-      <span class="key-lbl">Game key</span>
+      <span class="key-lbl" data-i18n="gameKeyLbl">Game key</span>
       <code class="key" id="gameKey">······</code>
-      <button type="button" class="btn quiet mini" id="copyLink">Copy invite link</button>
+      <button type="button" class="btn quiet mini" id="copyLink" data-i18n="copyLink">Copy invite link</button>
     </div>
     <div class="key-row">
-      <span class="key-lbl">Have a key?</span>
+      <span class="key-lbl" data-i18n="haveKeyLbl">Have a key?</span>
       <input type="text" class="join-input" id="joinInput" maxlength="8" placeholder="ABC123" autocomplete="off" spellcheck="false" aria-label="Enter a friend's game key">
-      <button type="button" class="btn quiet mini" id="joinBtn">Join</button>
+      <button type="button" class="btn quiet mini" id="joinBtn" data-i18n="joinBtn">Join</button>
     </div>
     <p class="online-note" id="onlineNote">Creating game…</p>
   </div>
 
-  <p class="status turn-x" id="status" aria-live="polite"><span class="chip" aria-hidden="true"></span><span id="statusText">X to move</span><button type="button" class="btn primary mini hidden" id="rematchBtn">Play again</button></p>
+  <p class="status turn-x" id="status" aria-live="polite"><span class="chip" aria-hidden="true"></span><span id="statusText">X to move</span><button type="button" class="btn primary mini hidden" id="rematchBtn" data-i18n="playAgain">Play again</button><span class="timer-pill hidden" id="timerPill">30</span></p>
 
   <div class="playfield">
   <div class="arena turn-x" id="arena">
@@ -148,13 +155,14 @@
 
   <section class="score" aria-label="Score">
     <div class="tile tx"><div class="num" id="scoreX">0</div><div class="lbl" id="lblX">Player X</div></div>
-    <div class="tile td"><div class="num" id="scoreD">0</div><div class="lbl">Draws</div></div>
+    <div class="tile td"><div class="num" id="scoreD">0</div><div class="lbl" id="lblD">Draws</div></div>
     <div class="tile to"><div class="num" id="scoreO">0</div><div class="lbl" id="lblO">Player O</div></div>
   </section>
 
   <div class="actions">
-    <button type="button" class="btn primary" id="newRound">New round</button>
-    <button type="button" class="btn quiet" id="resetAll">Reset scores</button>
+    <button type="button" class="btn primary" id="newRound" data-i18n="newRoundBtn">New round</button>
+    <button type="button" class="btn quiet hidden" id="undoBtn" data-i18n="undoBtn">Undo</button>
+    <button type="button" class="btn quiet" id="resetAll" data-i18n="resetBtn">Reset scores</button>
   </div>
 
   <noscript>
@@ -162,7 +170,7 @@
   </noscript>
 
   <footer class="about">
-    <h2>How to play</h2>
+    <h2 data-i18n="footTitle">How to play</h2>
     <p>Tic-tac-toe goes by many names — the XO game, XOX or OXO, the OOO game, Xs and Os,
       or noughts and crosses. It is a classic strategy game for two players, X and O,
       who take turns marking a square on the grid. The first player to line up enough marks in a row —
