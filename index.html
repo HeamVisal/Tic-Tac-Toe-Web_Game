@@ -3,9 +3,54 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tic Tac Toe</title>
-<meta name="description" content="Tic Tac Toe with 3x3, 5x5, 7x7 and 10x10 boards — play a friend or the computer.">
+<title>Tic Tac Toe — Play Online Free | 3×3, 5×5, 7×7 &amp; 10×10 Boards</title>
+<meta name="description" content="Play tic-tac-toe online for free. Choose 3×3, 5×5, 7×7 or 10×10 boards, challenge a friend on one device or take on the computer at three difficulty levels. No ads, no sign-up.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="HeamVisal">
+<link rel="canonical" href="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/">
+<link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<meta name="theme-color" content="#EEF1F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161B" media="(prefers-color-scheme: dark)">
+
+<!-- Open Graph (Facebook, Discord, LinkedIn, …) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tic Tac Toe">
+<meta property="og:title" content="Tic Tac Toe — Play Online Free">
+<meta property="og:description" content="Free tic-tac-toe in your browser: 3×3, 5×5, 7×7 and 10×10 boards, two-player or vs computer.">
+<meta property="og:url" content="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/">
+<meta property="og:image" content="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Tic Tac Toe board with X winning, next to the game title">
+
+<!-- Twitter / X card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tic Tac Toe — Play Online Free">
+<meta name="twitter:description" content="Free tic-tac-toe in your browser: 3×3, 5×5, 7×7 and 10×10 boards, two-player or vs computer.">
+<meta name="twitter:image" content="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/assets/og-image.png">
+
 <link rel="stylesheet" href="./style.css">
+
+<!-- Structured data for rich results -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Tic Tac Toe",
+  "url": "https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/",
+  "description": "Free browser tic-tac-toe with 3×3, 5×5, 7×7 and 10×10 boards. Play a friend on one device or the computer at easy, tricky or perfect difficulty.",
+  "genre": "Board game",
+  "gamePlatform": "Web browser",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any",
+  "playMode": ["SinglePlayer", "MultiPlayer"],
+  "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2 },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "image": "https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/assets/og-image.png",
+  "author": { "@type": "Person", "name": "HeamVisal" },
+  "inLanguage": "en"
+}
+</script>
 </head>
 <body>
 
@@ -57,6 +102,21 @@
     <button type="button" class="btn primary" id="newRound">New round</button>
     <button type="button" class="btn quiet" id="resetAll">Reset scores</button>
   </div>
+
+  <noscript>
+    <p class="about">This game needs JavaScript. Please enable it in your browser to play.</p>
+  </noscript>
+
+  <footer class="about">
+    <h2>How to play</h2>
+    <p>Tic-tac-toe (also called noughts and crosses) is a classic strategy game for two players, X and O,
+      who take turns marking a square on the grid. The first player to line up enough marks in a row —
+      horizontally, vertically or diagonally — wins the round.</p>
+    <p>Pick your challenge: the classic <strong>3×3</strong> board needs three in a row, <strong>5×5</strong>
+      needs four, and the big <strong>7×7</strong> and <strong>10×10</strong> boards need five in a row.
+      Play against a friend on the same device, or face the computer on easy, tricky or perfect difficulty.
+      Scores are saved in your browser between visits. Free to play, no ads, no sign-up.</p>
+  </footer>
 </main>
 
 <script src="./script.js"></script>

@@ -331,3 +331,21 @@ body {
     transition-duration: 0.001s !important;
   }
 }
+
+/* ---------- about / SEO footer ---------- */
+.about {
+  max-width: 560px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  animation: rise 0.55s 0.26s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.about h2 {
+  font-family: 'Bricolage', system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: var(--ink);
+  margin: 10px 0 4px;
+}
+.about p { margin: 8px 0 0; }
+.about strong { color: var(--ink); font-weight: 600; }

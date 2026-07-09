@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/sitemap.xml
