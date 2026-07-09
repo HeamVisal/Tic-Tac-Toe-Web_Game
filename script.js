@@ -35,7 +35,11 @@
       youWin: 'You win the round!', cpuWins: 'Computer takes the round.', nameWins: '{name} wins the round!',
       draw: 'A draw. Nobody blinked.',
       timeUpYou: "Time's up — you win the round!", timeUpName: "Time's up — {name} wins the round!",
-      timerSet: '{name} set the move timer to {s}s', timerOffBy: '{name} turned the move timer off',
+      askedTimer: 'Asked {name} for a {s}-second move timer…', askedTimerOff: 'Asked {name} to turn the move timer off…',
+      wantsTimerTitle: 'Change the move timer?', wantsTimer: '{name} wants a {s}-second move timer.',
+      wantsTimerOff: '{name} wants to turn the move timer off.',
+      acceptedTimer: '{name} accepted — {s}s per move.', acceptedTimerOff: '{name} accepted — timer off.',
+      declinedTimer: '{name} declined the timer change.',
       onlyHostTimer: 'Only the host can set the move timer.',
       waitingStatus: 'Waiting for a friend…', connectingStatus: 'Connecting…',
       creating: 'Creating game…', joiningGame: 'Joining game…', waitingNote: 'Waiting for a friend to join…',
@@ -96,7 +100,11 @@
       youWin: 'អ្នកឈ្នះជុំនេះ!', cpuWins: 'កុំព្យូទ័រឈ្នះជុំនេះ។', nameWins: '{name} ឈ្នះជុំនេះ!',
       draw: 'ស្មើគ្នា!',
       timeUpYou: 'អស់ម៉ោង — អ្នកឈ្នះជុំនេះ!', timeUpName: 'អស់ម៉ោង — {name} ឈ្នះជុំនេះ!',
-      timerSet: '{name} បានកំណត់ម៉ោងដើរ {s} វិនាទី', timerOffBy: '{name} បានបិទម៉ោងដើរ',
+      askedTimer: 'បានស្នើ {name} កំណត់ម៉ោងដើរ {s} វិនាទី…', askedTimerOff: 'បានស្នើ {name} បិទម៉ោងដើរ…',
+      wantsTimerTitle: 'ប្តូរម៉ោងដើរ?', wantsTimer: '{name} ចង់កំណត់ម៉ោងដើរ {s} វិនាទី។',
+      wantsTimerOff: '{name} ចង់បិទម៉ោងដើរ។',
+      acceptedTimer: '{name} យល់ព្រម — {s} វិនាទីក្នុងមួយដើរ។', acceptedTimerOff: '{name} យល់ព្រម — បិទម៉ោង។',
+      declinedTimer: '{name} បដិសេធការប្តូរម៉ោង។',
       onlyHostTimer: 'មានតែម្ចាស់ហ្គេមទេដែលអាចកំណត់ម៉ោង។',
       waitingStatus: 'កំពុងរង់ចាំមិត្ត…', connectingStatus: 'កំពុងតភ្ជាប់…',
       creating: 'កំពុងបង្កើតហ្គេម…', joiningGame: 'កំពុងចូលរួម…', waitingNote: 'កំពុងរង់ចាំមិត្តចូលរួម…',
@@ -465,7 +473,7 @@
   /* ----- online play (WebRTC via PeerJS) ----- */
   var online = { peer: null, conn: null, role: null, key: null, ready: false, peerName: null,
     byed: false, reconnecting: false, reconnT: null, rejected: false };
-  var pendingOut = { restart: false, reset: false, size: null };
+  var pendingOut = { restart: false, reset: false, size: null, timer: null };
 
   function friendName() { return online.peerName || t('friend'); }
   var KEY_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -576,6 +584,7 @@
       online.ready = false;
       pendingOut.restart = pendingOut.reset = false;
       pendingOut.size = null;
+      pendingOut.timer = null;
       if (settings.mode !== 'online') return;
       if (online.rejected) return;      /* seat was taken — the 'full' note stays up */
       stopTurnTimer();
@@ -667,6 +676,7 @@
     online.rejected = false;
     pendingOut.restart = pendingOut.reset = false;
     pendingOut.size = null;
+    pendingOut.timer = null;
     el.onlinePanel.classList.add('hidden');
     hideChat();
   }
@@ -831,14 +841,33 @@
       setStatus(t('fullStatus'), '');
       toast(t('fullToast', { who: who }));
       el.rehostBtn.classList.remove('hidden');
-    } else if (msg.t === 'timer') {   /* host changed the move timer */
+    } else if (msg.t === 'timerReq') { /* host proposes a timer change */
       if (online.role !== 'guest' || [0, 15, 30, 60].indexOf(+msg.secs) < 0) return;
-      settings.timer = +msg.secs;
+      var secs = +msg.secs;
+      confirmThen(t('wantsTimerTitle'),
+        secs ? t('wantsTimer', { name: friendName(), s: secs }) : t('wantsTimerOff', { name: friendName() }),
+        function () {
+          send({ t: 'timerOk' });
+          settings.timer = secs;
+          syncSeg(el.timerSeg, 'timer', String(secs));
+          startTurnTimer();
+        }, t('accept'), function () {
+          send({ t: 'timerNo' });
+        });
+    } else if (msg.t === 'timerOk') {
+      if (pendingOut.timer === null) return;
+      settings.timer = pendingOut.timer;
+      pendingOut.timer = null;
+      persist();
       syncSeg(el.timerSeg, 'timer', String(settings.timer));
       toast(settings.timer
-        ? t('timerSet', { name: friendName(), s: settings.timer })
-        : t('timerOffBy', { name: friendName() }));
+        ? t('acceptedTimer', { name: friendName(), s: settings.timer })
+        : t('acceptedTimerOff', { name: friendName() }));
       startTurnTimer();
+    } else if (msg.t === 'timerNo') {
+      if (pendingOut.timer === null) return;
+      pendingOut.timer = null;
+      toast(t('declinedTimer', { name: friendName() }));
     } else if (msg.t === 'timeout') { /* the player to move ran out of time */
       if (turn === myOnlineMark() || !online.ready) return;
       forfeitRound(other(myOnlineMark()));
@@ -1466,9 +1495,16 @@
       note(t('onlyHostTimer'));
       return;
     }
+    if (settings.mode === 'online' && online.ready) {
+      syncSeg(el.timerSeg, 'timer', String(settings.timer)); /* stays put until friend accepts */
+      if (pendingOut.timer !== null) return;
+      pendingOut.timer = +v;
+      send({ t: 'timerReq', secs: +v });
+      toast(+v ? t('askedTimer', { name: friendName(), s: +v }) : t('askedTimerOff', { name: friendName() }));
+      return;
+    }
     settings.timer = +v;
     persist();
-    if (settings.mode === 'online' && online.ready) send({ t: 'timer', secs: settings.timer });
     startTurnTimer();
   });
 
