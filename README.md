@@ -1,70 +1,63 @@
-# Tic · Tac · Toe
+# Tic · Tac · Toe 🎮
 
-A polished tic-tac-toe web game — no frameworks, no build step, no backend. Just open it and play.
+The classic XO game, all grown up — six board sizes, a computer opponent, and real-time
+online play with chat, all in a page that loads instantly. No frameworks, no build step,
+no backend, no ads, no sign-up. Just open it and play. ✨
 
-*Also known as: the XO game, XOX, OXO, OOO game, Xs and Os, noughts and crosses — and Gomoku
-(five in a row) on the big boards.*
-
-**▶ Play it live:** https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/
+**▶ Play now:** https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/
 
 ![Tic Tac Toe preview](assets/og-image.png)
 
-## Features
+*Also answers to: the XO game, XOX, OXO, the OOO game, Xs and Os, noughts and crosses —
+and on the big boards it plays like Gomoku (five in a row).*
 
-- **Three ways to play**
-  - **Two players** — pass and play on one device
-  - **Vs computer** — three difficulties: *Easy* (random), *Tricky* (wins and blocks), *Perfect* (unbeatable minimax on 3×3, strong heuristic on bigger boards)
-  - **Online friend** — click, get a game key, share the invite link, and play in real time,
-    with built-in chat: free messages, an emoji bar and quick-chat taunts ("You're too slow 🐢", "Noob 🤡", …).
-    Chat sits beside the board on desktop, below it on phones, and incoming messages pop up as toasts
-- **Player names** — pick a name on entry (or keep the suggested PlayerN default); names appear on the
-  scoreboard, in chat and on your opponent's screen
-- **No accidental clicks** — new round / reset scores ask for confirmation; in online games both players
-  must accept, and leaving an online game (switching mode or closing the tab) warns you first
-- **Six board sizes**
+## 🚀 Play with a friend in 10 seconds
 
-  | Board | Marks in a row to win |
-  |-------|----------------------|
-  | 3×3   | 3 (classic)          |
-  | 5×5   | 4                    |
-  | 7×7   | 5                    |
-  | 10×10 | 5                    |
-  | 15×15 | 5                    |
-  | 20×20 | 5                    |
+1. Open the game and pick a nickname (or keep the suggested one)
+2. Tap **Online friend** — you get a 6-character game key like `XK4QP2`
+3. Send your friend the key (they type it in the join box) or just the invite link
+4. That's it — play, chat, and talk trash 🤡
 
-- Animated marks, win strike-through, light/dark theme, keyboard navigation, screen-reader labels
-- Scores and settings saved in your browser between visits
+## 🕹️ What's inside
 
-## Online play — how it works
+**Three ways to play**
+- 👥 **Two players** — pass and play on one device
+- 🤖 **Vs computer** — *Easy*, *Tricky*, or *Perfect* (unbeatable on 3×3, a fork-hunting
+  menace on the big boards) — with an Undo button when you fumble
+- 🌍 **Online friend** — peer-to-peer play with a shared key or link
 
-Online mode is fully peer-to-peer over **WebRTC** (via [PeerJS](https://peerjs.com/), bundled in `assets/`).
-The host's browser registers a random 6-character game key with PeerJS's free public broker; the friend's
-browser uses that key (from the invite link `?join=KEY`) to open a direct connection. After the handshake,
-all moves travel browser-to-browser — no game server, which is what lets the whole thing run on GitHub Pages.
+**Six boards** — classic **3×3** (three in a row) up to **20×20** (five in a row, Gomoku-style):
+3×3 · 5×5 · 7×7 · 10×10 · 15×15 · 20×20
 
-The host plays **X** and starts; the guest plays **O**. Only the host can change the board size, and
-rounds, scores and board changes stay in sync on both screens.
+**Online extras**
+- 💬 Chat with emoji and quick taunts ("You're too slow 🐢", "Noob 🤡")
+- ⏱️ Optional move timer (15/30/60s) — run out and you forfeit the round
+- 🔁 Fair-play rules: new rounds, score resets and board changes need *both* players to agree
+- 🔌 Connection drop? The game waits and restores itself when you rejoin — board, scores and turn intact
+- 🪑 A third person trying your key is politely told the game is full (and who's playing)
+- 🆕 If your opponent leaves, one click starts a fresh game with a new key
 
-> Note: on very restrictive networks (some corporate/school NATs) WebRTC may fail to connect,
-> since the free setup has no TURN relay.
+**The little things**
+- 🎲 Random first turn, then the **loser starts** the next round (draws swap sides)
+- 🎉 Confetti when you win, sounds for moves/wins/messages (mutable), last-move highlight
+- 🌙 Light/dark theme toggle · 🇰🇭 **English / ខ្មែរ (Khmer)** language toggle
+- ♿ Keyboard navigation and screen-reader labels
+- 💾 Scores and settings remembered between visits
 
-## Project structure
+## 🔒 Privacy
 
-```
-index.html          Markup, SEO/social meta, structured data
-style.css           All styles (custom font embedded as data URI)
-script.js           Game engine, AI and online play
-assets/
-  favicon.svg       Site icon
-  og-image.png      Social share preview
-  peerjs.min.js     PeerJS library (loaded only for online mode)
-robots.txt          Crawler rules
-sitemap.xml         Sitemap for search engines
-```
+No account, no tracking, no personal data collected. Your nickname and scores live only in
+your own browser. Online games connect the two browsers **directly to each other** (WebRTC
+peer-to-peer via [PeerJS](https://peerjs.com/) — its free public broker is used only for the
+initial handshake). Moves and chat go straight between you and your friend and are never
+stored on any server.
 
-## Run locally
+> ⚠️ One honest limitation: on very restrictive networks (some corporate/school firewalls)
+> WebRTC may fail to connect, since the free setup has no relay server.
 
-No build needed — it's plain HTML/CSS/JS:
+## 🛠️ Run it locally
+
+It's plain HTML/CSS/JS — nothing to install:
 
 ```bash
 git clone https://github.com/HeamVisal/Tic-Tac-Toe-Web_Game.git
@@ -72,10 +65,23 @@ cd Tic-Tac-Toe-Web_Game
 python3 -m http.server 8000   # or any static server
 ```
 
-Then open http://localhost:8000. (Opening `index.html` straight from disk works too;
-online mode just needs the page to be served over HTTP/HTTPS in some browsers.)
+Open http://localhost:8000 and play.
 
-## Hosting
+```
+index.html          Markup, SEO/social meta, structured data
+style.css           All styles (custom font embedded as a data URI)
+script.js           Game engine, AI, online play, chat, i18n (EN/KM)
+assets/             Icon, share image, bundled PeerJS
+robots.txt          Crawler rules
+sitemap.xml         Sitemap for search engines
+```
 
-Made for **GitHub Pages**: enable it in *Settings → Pages → Deploy from a branch* (`master`, root).
-All asset paths are relative, so it also works on any other static host.
+## 🌐 Hosting
+
+Built for **GitHub Pages**: *Settings → Pages → Deploy from a branch* (`master`, root) and
+you're live. All paths are relative, so any static host works.
+
+---
+
+Made with ❤️ — have fun, and remember: the loser starts the next round, so losing is
+basically a strategy. 😄

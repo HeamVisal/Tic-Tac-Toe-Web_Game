@@ -622,7 +622,7 @@ body {
 
 /* ---------- rematch button ---------- */
 #rematchBtn { margin-left: 6px; }
-#rematchBtn.hidden { display: none; }
+.btn.hidden { display: none; }
 
 /* ---------- corner buttons (theme + sound) ---------- */
 .corner-btns {

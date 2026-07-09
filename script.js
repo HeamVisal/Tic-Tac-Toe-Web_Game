@@ -6,10 +6,9 @@
 
   /* board size -> marks in a row needed to win */
   var BOARDS = { 3: 3, 5: 4, 7: 5, 10: 5, 15: 5, 20: 5 };
-  var NEED_WORD = { 3: 'Three', 4: 'Four', 5: 'Five' };
   var DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]]; /* [dc, dr] */
 
-  var settings = { mode: 'pvp', diff: 'tricky', order: 'human', size: 3, name: '', muted: false, theme: '' };
+  var settings = { mode: 'pvp', diff: 'tricky', order: 'human', size: 3, name: '', muted: false, theme: '', lang: 'en', timer: 0 };
   var scores = { x: 0, o: 0, d: 0 };
   try {
     var saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -17,12 +16,149 @@
     if (saved.scores) scores = Object.assign(scores, saved.scores);
   } catch (e) { /* private mode etc. */ }
   if (!BOARDS[settings.size]) settings.size = 3;
+  if ([0, 15, 30, 60].indexOf(+settings.timer) < 0) settings.timer = 0;
+
+  /* ----- i18n ----- */
+  var LANG = {
+    en: {
+      you: 'You', computer: 'Computer', friend: 'Friend',
+      ok: 'OK', cancel: 'Cancel', accept: 'Accept', yes: 'Yes',
+      modePvp: 'Two players', modeCpu: 'Vs computer', modeOnline: 'Online friend',
+      diffEasy: 'Easy', diffTricky: 'Tricky', diffPerfect: 'Perfect',
+      orderYou: 'You start', orderCpu: 'Computer starts', timerOff: 'No timer',
+      gameKeyLbl: 'Game key', copyLink: 'Copy invite link', copied: 'Copied!',
+      haveKeyLbl: 'Have a key?', joinBtn: 'Join',
+      playAgain: 'Play again', newRoundBtn: 'New round', undoBtn: 'Undo', resetBtn: 'Reset scores',
+      playerX: 'Player X', playerO: 'Player O', draws: 'Draws',
+      tagline: '{n} in a row wins the round.', num3: 'Three', num4: 'Four', num5: 'Five',
+      toMove: '{mark} to move', yourMove: 'Your move', thinking: '{name} is thinking…', cpuThinking: 'Computer is thinking…',
+      youWin: 'You win the round!', cpuWins: 'Computer takes the round.', nameWins: '{name} wins the round!',
+      draw: 'A draw. Nobody blinked.',
+      timeUpYou: "Time's up — you win the round!", timeUpName: "Time's up — {name} wins the round!",
+      timerSet: '{name} set the move timer to {s}s', timerOffBy: '{name} turned the move timer off',
+      onlyHostTimer: 'Only the host can set the move timer.',
+      waitingStatus: 'Waiting for a friend…', connectingStatus: 'Connecting…',
+      creating: 'Creating game…', joiningGame: 'Joining game…', waitingNote: 'Waiting for a friend to join…',
+      nameTitle: 'What should we call you?', nameText: 'Shown to your opponent in online games.', namePlay: "Let's play",
+      newRoundTitle: 'Start a new round?', newRoundText: 'The current round will be abandoned.',
+      resetTitle: 'Reset all scores?', resetText: 'X, O and draw counts go back to zero.', resetOk: 'Reset',
+      leaveTitle: 'Leave the online game?', leaveText: 'You are playing with {name}. Leaving ends the game for both of you.', leaveOk: 'Leave game',
+      joinLeaveText: 'You are playing with {name}. Joining another game ends this one.', joinLeaveOk: 'Join new game',
+      wantsRestartTitle: 'New round?', wantsRestart: '{name} wants to start a new round.',
+      askedRestart: 'Asked {name} to start a new round…', acceptedRestart: '{name} accepted — new round!', declinedRestart: '{name} declined the new round.',
+      wantsResetTitle: 'Reset scores?', wantsReset: '{name} wants to reset all scores to zero.',
+      askedReset: 'Asked {name} to reset the scores…', acceptedReset: '{name} accepted — scores reset.', declinedReset: '{name} declined the score reset.',
+      wantsSizeTitle: 'Change the board to {s}×{s}?', wantsSize: '{name} wants to switch the board to {s}×{s}. Scores are kept.',
+      askedSize: 'Asked {name} to switch to {s}×{s}…', acceptedSize: '{name} accepted — board is now {s}×{s}.', declinedSize: '{name} declined the board change.',
+      onlyHostSize: 'Only the host can change the board size.',
+      connectedNote: 'Connected! You are O — {name} plays X.', connectedSys: 'Connected with {name}', connectedToast: 'Connected with {name}!',
+      joinedNote: '{name} joined! You play X.', joinedSys: '{name} joined', joinedToast: '{name} joined the game!',
+      friendJoinedNote: 'Friend joined! You play X.',
+      backNote: '{name} is back — game on!', backSys: '{name} reconnected', backToast: '{name} reconnected!',
+      reconnNote: 'Reconnected — game on!', reconnSys: 'Reconnected', reconnToast: 'Reconnected!', restoringNote: 'Reconnected — restoring the game…',
+      connSetupNote: 'Connected — setting up the board…',
+      connLost: 'Connection lost',
+      hostWaitNote: 'Connection lost — waiting for {name} to rejoin…', hostWaitToast: 'Connection lost — waiting for {name} to rejoin',
+      reconnTryNote: 'Connection lost — reconnecting… (try {a} of 10)',
+      reconnFailNote: 'Could not reconnect. Ask {name} for a fresh invite link.', disconnectedStatus: 'Disconnected',
+      leftHostNote: '{name} left the game. Share the key to play again.', leftNote: '{name} left the game.',
+      leftStatus: '{name} left', leftSys: '{name} left the game', leftToast: '{name} left the game',
+      fullNote: 'This game is full — {who} are already playing. Ask for a new key or start your own game.',
+      fullStatus: 'Game is full', fullToast: 'Game is full — {who} are already playing',
+      noGameNote: 'No game found for that key. Ask your friend for a fresh link.',
+      serverNote: 'Could not reach the matchmaking server. Check your internet and reload.',
+      errNote: 'Connection error ({e}). Reload and try again.',
+      libNote: 'Could not load the connection library. Check your internet and reload.',
+      copyPrompt: 'Copy this link:',
+      enterKeyNote: 'Enter the 6-character game key your friend shared.',
+      ownKeyNote: "That's your own game key — send it to a friend instead!",
+      chatPh: 'Say something…',
+      rehostBtn: 'Start a new game',
+      quick: ['Haha! 😂', "You're too slow 🐢", 'Noob 🤡', 'Nice move 👏', 'Lucky! 🍀', 'GG 🤝', 'Rematch? 🔁'],
+      footTitle: 'How to play', privacyTitle: 'Your privacy',
+      foot3: 'Playing online is easy: choose <strong>Online friend</strong>, then share your 6-character game key or the invite link. Your friend types the key (or opens the link) and the game starts instantly — with built-in chat, emoji taunts, an optional move timer, and automatic reconnection if the connection hiccups. If a round ends, hit <strong>Play again</strong> — the loser starts the next round.',
+      foot4: 'No account, no tracking, no personal data collected. Your nickname and scores are stored only in your own browser. Online games connect the two browsers directly to each other (peer-to-peer), so moves and chat messages travel straight between you and your friend — they are never stored on any server.',
+      foot1: 'Tic-tac-toe goes by many names — the XO game, XOX or OXO, the OOO game, Xs and Os, or noughts and crosses. It is a classic strategy game for two players, X and O, who take turns marking a square on the grid. The first player to line up enough marks in a row — horizontally, vertically or diagonally — wins the round. On the big boards it plays like Gomoku: five in a row wins.',
+      foot2: 'Pick your challenge: the classic <strong>3×3</strong> board needs three in a row, <strong>5×5</strong> needs four, and the bigger boards — <strong>7×7</strong>, <strong>10×10</strong>, <strong>15×15</strong> and <strong>20×20</strong> — need five in a row. Play against a friend on the same device, invite an online friend with a shared link, or face the computer on easy, tricky or perfect difficulty. Scores are saved in your browser between visits. Free to play, no ads, no sign-up.'
+    },
+    km: {
+      you: 'អ្នក', computer: 'កុំព្យូទ័រ', friend: 'មិត្ត',
+      ok: 'យល់ព្រម', cancel: 'បោះបង់', accept: 'ទទួលយក', yes: 'យល់ព្រម',
+      modePvp: 'អ្នកលេងពីរនាក់', modeCpu: 'ជាមួយកុំព្យូទ័រ', modeOnline: 'មិត្តអនឡាញ',
+      diffEasy: 'ងាយ', diffTricky: 'ល្បិច', diffPerfect: 'ឥតខ្ចោះ',
+      orderYou: 'អ្នកចាប់ផ្តើម', orderCpu: 'កុំព្យូទ័រចាប់ផ្តើម', timerOff: 'គ្មានម៉ោង',
+      gameKeyLbl: 'លេខកូដហ្គេម', copyLink: 'ចម្លងតំណអញ្ជើញ', copied: 'បានចម្លង!',
+      haveKeyLbl: 'មានលេខកូដ?', joinBtn: 'ចូលរួម',
+      playAgain: 'លេងម្តងទៀត', newRoundBtn: 'ជុំថ្មី', undoBtn: 'ដើរថយក្រោយ', resetBtn: 'លុបពិន្ទុ',
+      playerX: 'អ្នកលេង X', playerO: 'អ្នកលេង O', draws: 'ស្មើ',
+      tagline: 'តម្រៀប {n} ក្នុងជួរ ដើម្បីឈ្នះ។', num3: '៣', num4: '៤', num5: '៥',
+      toMove: 'វេន {mark}', yourMove: 'វេនរបស់អ្នក', thinking: '{name} កំពុងគិត…', cpuThinking: 'កុំព្យូទ័រកំពុងគិត…',
+      youWin: 'អ្នកឈ្នះជុំនេះ!', cpuWins: 'កុំព្យូទ័រឈ្នះជុំនេះ។', nameWins: '{name} ឈ្នះជុំនេះ!',
+      draw: 'ស្មើគ្នា!',
+      timeUpYou: 'អស់ម៉ោង — អ្នកឈ្នះជុំនេះ!', timeUpName: 'អស់ម៉ោង — {name} ឈ្នះជុំនេះ!',
+      timerSet: '{name} បានកំណត់ម៉ោងដើរ {s} វិនាទី', timerOffBy: '{name} បានបិទម៉ោងដើរ',
+      onlyHostTimer: 'មានតែម្ចាស់ហ្គេមទេដែលអាចកំណត់ម៉ោង។',
+      waitingStatus: 'កំពុងរង់ចាំមិត្ត…', connectingStatus: 'កំពុងតភ្ជាប់…',
+      creating: 'កំពុងបង្កើតហ្គេម…', joiningGame: 'កំពុងចូលរួម…', waitingNote: 'កំពុងរង់ចាំមិត្តចូលរួម…',
+      nameTitle: 'តើឱ្យយើងហៅអ្នកថាអ្វី?', nameText: 'នឹងបង្ហាញដល់គូប្រកួតក្នុងហ្គេមអនឡាញ។', namePlay: 'ចាប់ផ្តើមលេង',
+      newRoundTitle: 'ចាប់ផ្តើមជុំថ្មី?', newRoundText: 'ជុំបច្ចុប្បន្ននឹងត្រូវបោះបង់។',
+      resetTitle: 'លុបពិន្ទុទាំងអស់?', resetText: 'ពិន្ទុ X, O និងស្មើ នឹងត្រឡប់ទៅសូន្យ។', resetOk: 'លុបពិន្ទុ',
+      leaveTitle: 'ចាកចេញពីហ្គេមអនឡាញ?', leaveText: 'អ្នកកំពុងលេងជាមួយ {name}។ ការចាកចេញនឹងបញ្ចប់ហ្គេមទាំងសងខាង។', leaveOk: 'ចាកចេញ',
+      joinLeaveText: 'អ្នកកំពុងលេងជាមួយ {name}។ ការចូលហ្គេមថ្មីនឹងបញ្ចប់ហ្គេមនេះ។', joinLeaveOk: 'ចូលហ្គេមថ្មី',
+      wantsRestartTitle: 'ជុំថ្មី?', wantsRestart: '{name} ចង់ចាប់ផ្តើមជុំថ្មី។',
+      askedRestart: 'បានស្នើ {name} ចាប់ផ្តើមជុំថ្មី…', acceptedRestart: '{name} យល់ព្រម — ជុំថ្មី!', declinedRestart: '{name} បដិសេធជុំថ្មី។',
+      wantsResetTitle: 'លុបពិន្ទុ?', wantsReset: '{name} ចង់លុបពិន្ទុទាំងអស់។',
+      askedReset: 'បានស្នើ {name} លុបពិន្ទុ…', acceptedReset: '{name} យល់ព្រម — ពិន្ទុត្រូវបានលុប។', declinedReset: '{name} បដិសេធការលុបពិន្ទុ។',
+      wantsSizeTitle: 'ប្តូរក្តារទៅ {s}×{s}?', wantsSize: '{name} ចង់ប្តូរក្តារទៅ {s}×{s}។ ពិន្ទុនៅដដែល។',
+      askedSize: 'បានស្នើ {name} ប្តូរទៅ {s}×{s}…', acceptedSize: '{name} យល់ព្រម — ក្តារ {s}×{s} ហើយ!', declinedSize: '{name} បដិសេធការប្តូរក្តារ។',
+      onlyHostSize: 'មានតែម្ចាស់ហ្គេមទេដែលអាចប្តូរទំហំក្តារ។',
+      connectedNote: 'បានតភ្ជាប់! អ្នកគឺ O — {name} លេង X។', connectedSys: 'បានតភ្ជាប់ជាមួយ {name}', connectedToast: 'បានតភ្ជាប់ជាមួយ {name}!',
+      joinedNote: '{name} បានចូលរួម! អ្នកលេង X។', joinedSys: '{name} បានចូលរួម', joinedToast: '{name} បានចូលហ្គេម!',
+      friendJoinedNote: 'មិត្តបានចូលរួម! អ្នកលេង X។',
+      backNote: '{name} ត្រឡប់មកវិញ — លេងបន្ត!', backSys: '{name} បានតភ្ជាប់ឡើងវិញ', backToast: '{name} បានត្រឡប់មកវិញ!',
+      reconnNote: 'តភ្ជាប់ឡើងវិញ — លេងបន្ត!', reconnSys: 'បានតភ្ជាប់ឡើងវិញ', reconnToast: 'បានតភ្ជាប់ឡើងវិញ!', restoringNote: 'តភ្ជាប់ឡើងវិញ — កំពុងស្តារហ្គេម…',
+      connSetupNote: 'បានតភ្ជាប់ — កំពុងរៀបចំក្តារ…',
+      connLost: 'ការតភ្ជាប់បានដាច់',
+      hostWaitNote: 'ការតភ្ជាប់ដាច់ — កំពុងរង់ចាំ {name} ចូលវិញ…', hostWaitToast: 'ការតភ្ជាប់ដាច់ — រង់ចាំ {name} ចូលវិញ',
+      reconnTryNote: 'ការតភ្ជាប់ដាច់ — កំពុងព្យាយាមម្តងទៀត… ({a}/10)',
+      reconnFailNote: 'មិនអាចតភ្ជាប់វិញបានទេ។ សុំតំណថ្មីពី {name}។', disconnectedStatus: 'បានដាច់',
+      leftHostNote: '{name} បានចាកចេញ។ ចែករំលែកលេខកូដដើម្បីលេងម្តងទៀត។', leftNote: '{name} បានចាកចេញ។',
+      leftStatus: '{name} បានចាកចេញ', leftSys: '{name} បានចាកចេញ', leftToast: '{name} បានចាកចេញ',
+      fullNote: 'ហ្គេមនេះពេញហើយ — {who} កំពុងលេង។ សុំលេខកូដថ្មី ឬបង្កើតហ្គេមផ្ទាល់ខ្លួន។',
+      fullStatus: 'ហ្គេមពេញហើយ', fullToast: 'ហ្គេមពេញ — {who} កំពុងលេង',
+      noGameNote: 'រកមិនឃើញហ្គេមសម្រាប់លេខកូដនេះទេ។ សុំតំណថ្មីពីមិត្ត។',
+      serverNote: 'មិនអាចភ្ជាប់ទៅម៉ាស៊ីនមេបានទេ។ ពិនិត្យអ៊ីនធឺណិត រួចផ្ទុកឡើងវិញ។',
+      errNote: 'បញ្ហាការតភ្ជាប់ ({e})។ ផ្ទុកទំព័រឡើងវិញ។',
+      libNote: 'មិនអាចផ្ទុកបណ្ណាល័យតភ្ជាប់បានទេ។ ពិនិត្យអ៊ីនធឺណិត រួចផ្ទុកឡើងវិញ។',
+      copyPrompt: 'ចម្លងតំណនេះ៖',
+      enterKeyNote: 'បញ្ចូលលេខកូដ ៦ តួ ដែលមិត្តរបស់អ្នកចែករំលែក។',
+      ownKeyNote: 'នេះជាលេខកូដរបស់អ្នកផ្ទាល់ — ផ្ញើវាទៅមិត្តវិញ!',
+      chatPh: 'សរសេរអ្វីមួយ…',
+      rehostBtn: 'បង្កើតហ្គេមថ្មី',
+      quick: ['ហាហា! 😂', 'អ្នកយឺតណាស់ 🐢', 'ខ្សោយម្លេះ 🤡', 'ដើរស្អាត! 👏', 'សំណាងទេ! 🍀', 'GG 🤝', 'ប្រកួតម្តងទៀត? 🔁'],
+      footTitle: 'របៀបលេង', privacyTitle: 'ឯកជនភាពរបស់អ្នក',
+      foot3: 'ការលេងអនឡាញងាយណាស់៖ ជ្រើស <strong>មិត្តអនឡាញ</strong> រួចចែករំលែកលេខកូដហ្គេម ៦ តួ ឬតំណអញ្ជើញ។ មិត្តរបស់អ្នកបញ្ចូលលេខកូដ (ឬបើកតំណ) ហើយហ្គេមចាប់ផ្តើមភ្លាមៗ — មានឆាត សញ្ញាអារម្មណ៍ ម៉ោងដើរ និងការតភ្ជាប់ឡើងវិញស្វ័យប្រវត្តិ។ ចប់ជុំហើយ ចុច <strong>លេងម្តងទៀត</strong> — អ្នកចាញ់ចាប់ផ្តើមជុំបន្ទាប់។',
+      foot4: 'គ្មានគណនី គ្មានការតាមដាន គ្មានការប្រមូលទិន្នន័យផ្ទាល់ខ្លួន។ ឈ្មោះ និងពិន្ទុរបស់អ្នក រក្សាទុកតែក្នុងកម្មវិធីរុករករបស់អ្នកប៉ុណ្ណោះ។ ហ្គេមអនឡាញ ភ្ជាប់កម្មវិធីរុករកទាំងពីរដោយផ្ទាល់ (peer-to-peer) — ការដើរ និងសារឆាត ទៅដល់មិត្តរបស់អ្នកផ្ទាល់ មិនដែលរក្សាទុកលើម៉ាស៊ីនមេណាមួយឡើយ។',
+      foot1: 'ហ្គេម Tic-tac-toe មានឈ្មោះច្រើន — ហ្គេម XO, XOX ឬ OXO, ហ្គេម OOO ឬ noughts and crosses។ ជាហ្គេមយុទ្ធសាស្ត្របុរាណសម្រាប់អ្នកលេងពីរនាក់ X និង O ដែលដាក់សញ្ញាម្តងម្នាក់លើក្តារ។ អ្នកដែលតម្រៀបសញ្ញាគ្រប់ចំនួនក្នុងជួរមុនគេ — ផ្ដេក បញ្ឈរ ឬទ្រេត — ឈ្នះជុំនោះ។ លើក្តារធំ លេងដូច Gomoku៖ ៥ ក្នុងជួរឈ្នះ។',
+      foot2: 'ជ្រើសរើសការប្រកួត៖ ក្តារ <strong>3×3</strong> បុរាណត្រូវការ ៣ ក្នុងជួរ, <strong>5×5</strong> ត្រូវការ ៤, ហើយក្តារធំ — <strong>7×7</strong>, <strong>10×10</strong>, <strong>15×15</strong> និង <strong>20×20</strong> — ត្រូវការ ៥ ក្នុងជួរ។ លេងជាមួយមិត្តលើឧបករណ៍តែមួយ អញ្ជើញមិត្តអនឡាញ ឬប្រកួតជាមួយកុំព្យូទ័រ។ ពិន្ទុរក្សាទុកក្នុងកម្មវិធីរុករករបស់អ្នក។ លេងឥតគិតថ្លៃ គ្មានពាណិជ្ជកម្ម គ្មានការចុះឈ្មោះ។'
+    }
+  };
+  if (settings.lang !== 'km') settings.lang = 'en';
+  function t(key, vars) {
+    var pack = LANG[settings.lang] || LANG.en;
+    var s = pack[key] != null ? pack[key] : LANG.en[key];
+    if (s == null) return key;
+    if (typeof s !== 'string') return s;
+    if (vars) for (var k in vars) s = s.split('{' + k + '}').join(vars[k]);
+    return s;
+  }
 
   var N = +settings.size;      /* board is N x N */
   var K = BOARDS[N];           /* K in a row wins */
   var board, turn, over, cpuTimer = null;
   var starter = Math.random() < 0.5 ? 'x' : 'o'; /* random side first; then loser starts, draws swap */
   var lastCell = -1;           /* most recent move, for the highlight */
+  var moveLog = [];            /* moves this round, for undo (vs computer) */
 
   var el = {
     arena: document.getElementById('arena'),
@@ -61,9 +197,15 @@
     toasts: document.getElementById('toasts'),
     rematchBtn: document.getElementById('rematchBtn'),
     soundBtn: document.getElementById('soundBtn'),
+    lblD: document.getElementById('lblD'),
+    undoBtn: document.getElementById('undoBtn'),
+    timerSeg: document.getElementById('timerSeg'),
+    timerPill: document.getElementById('timerPill'),
+    langBtn: document.getElementById('langBtn'),
     themeBtn: document.getElementById('themeBtn'),
     joinInput: document.getElementById('joinInput'),
-    joinBtn: document.getElementById('joinBtn')
+    joinBtn: document.getElementById('joinBtn'),
+    rehostBtn: document.getElementById('rehostBtn')
   };
 
   /* ----- theme toggle ----- */
@@ -88,6 +230,121 @@
     persist();
     applyTheme();
   });
+
+  /* ----- language toggle ----- */
+  function applyLang() {
+    document.documentElement.lang = settings.lang === 'km' ? 'km' : 'en';
+    el.langBtn.textContent = settings.lang === 'km' ? 'EN' : 'ខ្មែរ';
+    document.querySelectorAll('[data-i18n]').forEach(function (n) {
+      n.textContent = t(n.getAttribute('data-i18n'));
+    });
+    var quick = t('quick');
+    var qb = el.chatQuick.querySelectorAll('button');
+    for (var i = 0; i < qb.length && i < quick.length; i++) {
+      qb[i].textContent = quick[i];
+      qb[i].setAttribute('data-say', quick[i]);
+    }
+    el.chatInput.placeholder = t('chatPh');
+    var ps = document.querySelectorAll('footer.about p');
+    if (ps[0]) ps[0].innerHTML = t('foot1');
+    if (ps[1]) ps[1].innerHTML = t('foot2');
+    if (ps[2]) ps[2].innerHTML = t('foot3');
+    if (ps[3]) ps[3].innerHTML = t('foot4');
+    el.tagline.textContent = t('tagline', { n: t('num' + K) });
+    renderScores();
+    if (!over) statusForTurn();
+  }
+  el.langBtn.addEventListener('click', function () {
+    settings.lang = settings.lang === 'km' ? 'en' : 'km';
+    persist();
+    applyLang();
+  });
+
+  /* ----- confetti (canvas, decorative) ----- */
+  function confetti() {
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var cv = document.createElement('canvas');
+      cv.className = 'confetti';
+      cv.width = window.innerWidth;
+      cv.height = window.innerHeight;
+      document.body.appendChild(cv);
+      var ctx = cv.getContext('2d');
+      var colors = ['#E5471F', '#1F6FEB', '#FF6A3D', '#5EA0FF', '#F7C948', '#4CC38A'];
+      var parts = [];
+      for (var i = 0; i < 130; i++) {
+        parts.push({
+          x: cv.width / 2, y: cv.height * 0.35,
+          vx: (Math.random() - 0.5) * 16,
+          vy: -Math.random() * 13 - 3,
+          s: 5 + Math.random() * 6,
+          r: Math.random() * Math.PI,
+          vr: (Math.random() - 0.5) * 0.3,
+          c: colors[i % colors.length]
+        });
+      }
+      var t0 = Date.now();
+      (function frame() {
+        var dt = Date.now() - t0;
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        ctx.globalAlpha = Math.max(0, 1 - dt / 1800);
+        parts.forEach(function (p) {
+          p.x += p.vx; p.y += p.vy; p.vy += 0.35; p.r += p.vr;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.r);
+          ctx.fillStyle = p.c;
+          ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.6);
+          ctx.restore();
+        });
+        if (dt < 1900) requestAnimationFrame(frame); else cv.remove();
+      })();
+    } catch (e) { /* decorative only */ }
+  }
+
+  /* ----- move timer (online) ----- */
+  var timerT = null;
+  function stopTurnTimer() {
+    if (timerT) { clearInterval(timerT); timerT = null; }
+    el.timerPill.classList.add('hidden');
+  }
+  function startTurnTimer() {
+    stopTurnTimer();
+    if (settings.mode !== 'online' || !online.ready || over || !(+settings.timer)) return;
+    var deadline = Date.now() + settings.timer * 1000;
+    var tick = function () {
+      var left = Math.ceil((deadline - Date.now()) / 1000);
+      if (left <= 0) {
+        stopTurnTimer();
+        if (turn === myOnlineMark() && online.ready && !over) {
+          send({ t: 'timeout' });
+          forfeitRound(myOnlineMark());
+        }
+        return;
+      }
+      el.timerPill.textContent = left;
+      el.timerPill.classList.toggle('urgent', left <= 5);
+    };
+    el.timerPill.classList.remove('hidden', 'urgent');
+    el.timerPill.textContent = settings.timer;
+    timerT = setInterval(tick, 250);
+  }
+  function forfeitRound(loserMark) {
+    if (over) return;
+    var winnerMark = other(loserMark);
+    starter = loserMark;              /* loser starts the next round */
+    scores[winnerMark] += 1;
+    over = true;
+    el.arena.classList.add('locked');
+    stopTurnTimer();
+    var kind = winnerKind(winnerMark);
+    setStatus(kind === 'you' ? t('timeUpYou') : t('timeUpName', { name: playerName(winnerMark) }), 'turn-' + winnerMark);
+    renderScores();
+    persist();
+    if (online.ready) el.rematchBtn.classList.remove('hidden');
+    sfx(kind === 'you' ? 'win' : 'lose');
+    if (kind === 'you') confetti();
+  }
 
   /* ----- sound effects (Web Audio, no asset files) ----- */
   var audioCtx = null;
@@ -143,8 +400,8 @@
       el.modalInput.value = o.value || '';
       el.modalInput.placeholder = o.placeholder || '';
     }
-    el.modalOk.textContent = o.okText || 'OK';
-    el.modalCancel.textContent = o.cancelText || 'Cancel';
+    el.modalOk.textContent = o.okText || t('ok');
+    el.modalCancel.textContent = o.cancelText || t('cancel');
     el.modalCancel.classList.toggle('hidden', !!o.hideCancel);
     modalHandlers.ok = o.onOk || null;
     modalHandlers.cancel = o.onCancel || null;
@@ -168,7 +425,7 @@
     if (e.key === 'Enter') { e.preventDefault(); el.modalOk.click(); }
   });
   function confirmThen(title, text, onYes, okText, onNo) {
-    showModal({ title: title, text: text, okText: okText || 'Yes', cancelText: 'Cancel', onOk: onYes, onCancel: onNo });
+    showModal({ title: title, text: text, okText: okText || t('yes'), cancelText: t('cancel'), onOk: onYes, onCancel: onNo });
   }
 
   function toast(text) {
@@ -189,12 +446,12 @@
   function askName(done) {
     var suggested = settings.name || 'Player' + Math.floor(1 + Math.random() * 999);
     showModal({
-      title: 'What should we call you?',
-      text: 'Shown to your opponent in online games.',
+      title: t('nameTitle'),
+      text: t('nameText'),
       input: true,
       value: settings.name || '',
       placeholder: suggested,
-      okText: "Let's play",
+      okText: t('namePlay'),
       hideCancel: true,
       onOk: function (v) {
         settings.name = cleanName(v, suggested);
@@ -210,7 +467,7 @@
     byed: false, reconnecting: false, reconnT: null, rejected: false };
   var pendingOut = { restart: false, reset: false, size: null };
 
-  function friendName() { return online.peerName || 'Friend'; }
+  function friendName() { return online.peerName || t('friend'); }
   var KEY_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
   function genKey() {
@@ -230,7 +487,7 @@
     var s = document.createElement('script');
     s.src = './assets/peerjs.min.js';
     s.onload = cb;
-    s.onerror = function () { note('Could not load the connection library. Check your internet and reload.'); };
+    s.onerror = function () { note(t('libNote')); };
     document.head.appendChild(s);
   }
 
@@ -238,9 +495,10 @@
     teardownOnline();
     online.role = role;
     online.key = key || genKey();
+    el.rehostBtn.classList.add('hidden');
     el.onlinePanel.classList.remove('hidden');
     el.gameKey.textContent = online.key;
-    note(role === 'host' ? 'Creating game…' : 'Joining game…');
+    note(role === 'host' ? t('creating') : t('joiningGame'));
     loadPeerJs(function () {
       if (role === 'host') hostGame(); else joinGame();
     });
@@ -256,14 +514,15 @@
       turn: turn,
       scores: { x: scores.x, o: scores.o, d: scores.d },
       starter: starter,
-      over: over
+      over: over,
+      timer: settings.timer
     };
   }
 
   function hostGame() {
     online.peer = new Peer('ttt-' + online.key);
     online.peer.on('open', function () {
-      note('Waiting for a friend to join…');
+      note(t('waitingNote'));
       statusForTurn();
     });
     online.peer.on('connection', function (c) {
@@ -280,9 +539,9 @@
         online.ready = true;
         online.byed = false;
         if (online.peerName) {
-          note(friendName() + ' is back — game on!');
+          note(t('backNote', { name: friendName() }));
         } else {
-          note('Friend joined! You are X — you start.');
+          note(t('friendJoinedNote'));
         }
         c.send(helloState());
         showChat();
@@ -301,7 +560,7 @@
       var c = online.peer.connect('ttt-' + online.key, { reliable: true });
       online.conn = c;
       bindConn(c);
-      c.on('open', function () { note('Connected — setting up the board…'); });
+      c.on('open', function () { note(t('connSetupNote')); });
     });
     online.peer.on('disconnected', function () {
       try { online.peer.reconnect(); } catch (e) {}
@@ -319,21 +578,21 @@
       pendingOut.size = null;
       if (settings.mode !== 'online') return;
       if (online.rejected) return;      /* seat was taken — the 'full' note stays up */
+      stopTurnTimer();
       if (online.byed) {                /* deliberate leave — no reconnect */
-        note(online.role === 'host'
-          ? friendName() + ' left the game. Share the key to play again.'
-          : friendName() + ' left the game.');
-        setStatus(friendName() + ' left', '');
-        addChat('sys', friendName() + ' left the game');
-        toast(friendName() + ' left the game');
+        note(t(online.role === 'host' ? 'leftHostNote' : 'leftNote', { name: friendName() }));
+        setStatus(t('leftStatus', { name: friendName() }), '');
+        addChat('sys', t('leftSys', { name: friendName() }));
+        toast(t('leftToast', { name: friendName() }));
+        if (online.role === 'guest') el.rehostBtn.classList.remove('hidden'); /* their key is dead — offer a fresh game */
         return;
       }
       /* connection dropped — try to recover */
-      addChat('sys', 'Connection lost');
-      setStatus('Connection lost', '');
+      addChat('sys', t('connLost'));
+      setStatus(t('connLost'), '');
       if (online.role === 'host') {
-        note('Connection lost — waiting for ' + friendName() + ' to rejoin…');
-        toast('Connection lost — waiting for ' + friendName() + ' to rejoin');
+        note(t('hostWaitNote', { name: friendName() }));
+        toast(t('hostWaitToast', { name: friendName() }));
       } else {
         online.reconnecting = true;
         tryReconnect(1);
@@ -352,11 +611,12 @@
     if (online.peer.disconnected) { try { online.peer.reconnect(); } catch (e) {} }
     if (attempt > 10) {
       online.reconnecting = false;
-      note('Could not reconnect. Ask ' + friendName() + ' for a fresh invite link.');
-      setStatus('Disconnected', '');
+      note(t('reconnFailNote', { name: friendName() }));
+      setStatus(t('disconnectedStatus'), '');
+      el.rehostBtn.classList.remove('hidden');
       return;
     }
-    note('Connection lost — reconnecting… (try ' + attempt + ' of 10)');
+    note(t('reconnTryNote', { a: attempt }));
     var c = online.peer.connect('ttt-' + online.key, { reliable: true });
     var opened = false;
     c.on('open', function () {
@@ -364,7 +624,7 @@
       online.conn = c;
       online.byed = false;
       bindConn(c);
-      note('Reconnected — restoring the game…');
+      note(t('restoringNote'));
     });
     c.on('error', function () { /* swallowed; retry below */ });
     setTimeout(function () {
@@ -384,15 +644,16 @@
     }
     if (err.type === 'peer-unavailable') {
       if (online.reconnecting) return; /* retry loop handles messaging */
-      note('No game found for that key. Ask your friend for a fresh link.');
+      note(t('noGameNote'));
     } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
-      note('Could not reach the matchmaking server. Check your internet and reload.');
+      note(t('serverNote'));
     } else {
-      note('Connection error (' + err.type + '). Reload and try again.');
+      note(t('errNote', { e: err.type }));
     }
   }
 
   function teardownOnline() {
+    stopTurnTimer();
     if (online.reconnT) { clearTimeout(online.reconnT); online.reconnT = null; }
     if (online.conn) { try { online.conn.close(); } catch (e) {} }
     if (online.peer) { try { online.peer.destroy(); } catch (e) {} }
@@ -418,6 +679,8 @@
   /* guest: adopt the host's game state (fresh join or reconnect) */
   function restoreState(msg) {
     starter = msg.starter === 'o' ? 'o' : 'x';
+    settings.timer = [0, 15, 30, 60].indexOf(+msg.timer) >= 0 ? +msg.timer : 0;
+    syncSeg(el.timerSeg, 'timer', String(settings.timer));
     var s = msg.scores || {};
     scores = {
       x: s.x >= 0 ? s.x | 0 : 0,
@@ -464,51 +727,51 @@
       send({ t: 'hi', name: settings.name, re: wasReconnect });
       showChat();
       if (wasReconnect) {
-        addChat('sys', 'Reconnected');
-        toast('Reconnected!');
-        note('Reconnected — game on!');
+        addChat('sys', t('reconnSys'));
+        toast(t('reconnToast'));
+        note(t('reconnNote'));
       } else {
-        addChat('sys', 'Connected with ' + friendName());
-        toast('Connected with ' + friendName() + '!');
-        note('Connected! You are O — ' + friendName() + ' plays X.');
+        addChat('sys', t('connectedSys', { name: friendName() }));
+        toast(t('connectedToast', { name: friendName() }));
+        note(t('connectedNote', { name: friendName() }));
         sfx('join');
       }
       restoreState(msg);
     } else if (msg.t === 'hi') {      /* host: guest introduced themselves */
       online.peerName = cleanName(msg.name, 'Friend');
       if (msg.re) {
-        note(friendName() + ' is back — game on!');
-        addChat('sys', friendName() + ' reconnected');
-        toast(friendName() + ' reconnected!');
+        note(t('backNote', { name: friendName() }));
+        addChat('sys', t('backSys', { name: friendName() }));
+        toast(t('backToast', { name: friendName() }));
         statusForTurn();
       } else {
-        note(friendName() + ' joined! You are X — you start.');
-        addChat('sys', friendName() + ' joined');
-        toast(friendName() + ' joined the game!');
+        note(t('joinedNote', { name: friendName() }));
+        addChat('sys', t('joinedSys', { name: friendName() }));
+        toast(t('joinedToast', { name: friendName() }));
         sfx('join');
       }
       renderScores();
     } else if (msg.t === 'sizeReq') {  /* host proposes a board change */
       if (online.role !== 'guest' || !BOARDS[msg.size]) return;
       var n = +msg.size;
-      confirmThen('Change the board to ' + n + '×' + n + '?',
-        friendName() + ' wants to switch the board to ' + n + '×' + n + '. Scores are kept.',
+      confirmThen(t('wantsSizeTitle', { s: n }),
+        t('wantsSize', { name: friendName(), s: n }),
         function () {
           send({ t: 'sizeOk' });
           applySize(n);
-        }, 'Accept', function () {
+        }, t('accept'), function () {
           send({ t: 'sizeNo' });
         });
     } else if (msg.t === 'sizeOk') {
       if (!pendingOut.size) return;
       var n2 = pendingOut.size;
       pendingOut.size = null;
-      toast(friendName() + ' accepted — board is now ' + n2 + '×' + n2 + '.');
+      toast(t('acceptedSize', { name: friendName(), s: n2 }));
       applySize(n2);
     } else if (msg.t === 'sizeNo') {
       if (!pendingOut.size) return;
       pendingOut.size = null;
-      toast(friendName() + ' declined the board change.');
+      toast(t('declinedSize', { name: friendName() }));
     } else if (msg.t === 'move') {
       var i = msg.i | 0;
       if (over || !online.ready) return;
@@ -522,21 +785,21 @@
         newRound();
         return;
       }
-      confirmThen('New round?', friendName() + ' wants to start a new round.', function () {
+      confirmThen(t('wantsRestartTitle'), t('wantsRestart', { name: friendName() }), function () {
         send({ t: 'restartOk' });
         newRound();
-      }, 'Accept', function () {
+      }, t('accept'), function () {
         send({ t: 'restartNo' });
       });
     } else if (msg.t === 'restartOk') {
       if (!pendingOut.restart) return;
       pendingOut.restart = false;
-      toast(friendName() + ' accepted — new round!');
+      toast(t('acceptedRestart', { name: friendName() }));
       newRound();
     } else if (msg.t === 'restartNo') {
       if (!pendingOut.restart) return;
       pendingOut.restart = false;
-      toast(friendName() + ' declined the new round.');
+      toast(t('declinedRestart', { name: friendName() }));
     } else if (msg.t === 'resetReq') {
       if (pendingOut.reset) {
         pendingOut.reset = false;
@@ -544,29 +807,41 @@
         doReset();
         return;
       }
-      confirmThen('Reset scores?', friendName() + ' wants to reset all scores to zero.', function () {
+      confirmThen(t('wantsResetTitle'), t('wantsReset', { name: friendName() }), function () {
         send({ t: 'resetOk' });
         doReset();
-      }, 'Accept', function () {
+      }, t('accept'), function () {
         send({ t: 'resetNo' });
       });
     } else if (msg.t === 'resetOk') {
       if (!pendingOut.reset) return;
       pendingOut.reset = false;
-      toast(friendName() + ' accepted — scores reset.');
+      toast(t('acceptedReset', { name: friendName() }));
       doReset();
     } else if (msg.t === 'resetNo') {
       if (!pendingOut.reset) return;
       pendingOut.reset = false;
-      toast(friendName() + ' declined the score reset.');
+      toast(t('declinedReset', { name: friendName() }));
     } else if (msg.t === 'full') {    /* we were the third wheel */
       online.rejected = true;
       var who = Array.isArray(msg.players)
         ? msg.players.map(function (n) { return cleanName(n, 'Player'); }).join(' & ')
         : 'Two players';
-      note('This game is full — ' + who + ' are already playing. Ask for a new key or start your own game.');
-      setStatus('Game is full', '');
-      toast('Game is full — ' + who + ' are already playing');
+      note(t('fullNote', { who: who }));
+      setStatus(t('fullStatus'), '');
+      toast(t('fullToast', { who: who }));
+      el.rehostBtn.classList.remove('hidden');
+    } else if (msg.t === 'timer') {   /* host changed the move timer */
+      if (online.role !== 'guest' || [0, 15, 30, 60].indexOf(+msg.secs) < 0) return;
+      settings.timer = +msg.secs;
+      syncSeg(el.timerSeg, 'timer', String(settings.timer));
+      toast(settings.timer
+        ? t('timerSet', { name: friendName(), s: settings.timer })
+        : t('timerOffBy', { name: friendName() }));
+      startTurnTimer();
+    } else if (msg.t === 'timeout') { /* the player to move ran out of time */
+      if (turn === myOnlineMark() || !online.ready) return;
+      forfeitRound(other(myOnlineMark()));
     } else if (msg.t === 'bye') {     /* opponent left deliberately */
       online.byed = true;
       if (online.conn) { try { online.conn.close(); } catch (e) {} }
@@ -635,26 +910,32 @@
   function joinByKey() {
     var k = el.joinInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
     if (k.length < 4) {
-      note('Enter the 6-character game key your friend shared.');
+      note(t('enterKeyNote'));
       el.joinInput.focus();
       return;
     }
     if (online.role === 'host' && k === online.key) {
-      note("That's your own game key — send it to a friend instead!");
+      note(t('ownKeyNote'));
       return;
     }
     el.joinInput.value = '';
     if (online.ready) {
-      confirmThen('Leave the current game?',
-        'You are playing with ' + friendName() + '. Joining another game ends this one.',
+      confirmThen(t('leaveTitle'),
+        t('joinLeaveText', { name: friendName() }),
         function () {
           send({ t: 'bye' });
           startOnline('guest', k);
-        }, 'Join new game');
+        }, t('joinLeaveOk'));
       return;
     }
     startOnline('guest', k);
   }
+  el.rehostBtn.addEventListener('click', function () {
+    scores = { x: 0, o: 0, d: 0 };
+    starter = Math.random() < 0.5 ? 'x' : 'o';
+    startOnline('host');
+    newRound();
+  });
   el.joinBtn.addEventListener('click', joinByKey);
   el.joinInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); joinByKey(); }
@@ -663,13 +944,13 @@
   el.copyLink.addEventListener('click', function () {
     var url = inviteUrl();
     var done = function () {
-      el.copyLink.textContent = 'Copied!';
-      setTimeout(function () { el.copyLink.textContent = 'Copy invite link'; }, 1500);
+      el.copyLink.textContent = t('copied');
+      setTimeout(function () { el.copyLink.textContent = t('copyLink'); }, 1500);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link:', url); });
+      navigator.clipboard.writeText(url).then(done, function () { window.prompt(t('copyPrompt'), url); });
     } else {
-      window.prompt('Copy this link:', url);
+      window.prompt(t('copyPrompt'), url);
     }
   });
 
@@ -718,7 +999,7 @@
 
     el.arena.classList.toggle('large', N >= 7 && N < 15);
     el.arena.classList.toggle('huge', N >= 15);
-    el.tagline.textContent = NEED_WORD[K] + ' in a row wins the round.';
+    el.tagline.textContent = t('tagline', { n: t('num' + K) });
   }
 
   el.board.addEventListener('keydown', function (e) {
@@ -738,8 +1019,14 @@
 
   function playerName(mark) {
     if (settings.mode === 'pvp') return mark.toUpperCase();
-    if (settings.mode === 'online') return mark === myOnlineMark() ? 'You' : friendName();
-    return mark === humanMark() ? 'You' : 'Computer';
+    if (settings.mode === 'online') return mark === myOnlineMark() ? t('you') : friendName();
+    return mark === humanMark() ? t('you') : t('computer');
+  }
+  /* who is this mark from my point of view: 'you' | 'cpu' | 'other' */
+  function winnerKind(mark) {
+    if (settings.mode === 'online') return mark === myOnlineMark() ? 'you' : 'other';
+    if (settings.mode === 'cpu') return mark === humanMark() ? 'you' : 'cpu';
+    return 'other';
   }
 
   function findWin(b) {
@@ -920,16 +1207,17 @@
     el.scoreO.textContent = scores.o;
     el.scoreD.textContent = scores.d;
     if (settings.mode === 'pvp') {
-      el.lblX.textContent = 'Player X';
-      el.lblO.textContent = 'Player O';
+      el.lblX.textContent = t('playerX');
+      el.lblO.textContent = t('playerO');
     } else if (settings.mode === 'online') {
-      var me = settings.name || 'You';
+      var me = settings.name || t('you');
       el.lblX.textContent = (online.role === 'host' ? me : friendName()) + ' · X';
       el.lblO.textContent = (online.role === 'host' ? friendName() : me) + ' · O';
     } else {
-      el.lblX.textContent = (humanMark() === 'x' ? (settings.name || 'You') : 'Computer') + ' · X';
-      el.lblO.textContent = (humanMark() === 'o' ? (settings.name || 'You') : 'Computer') + ' · O';
+      el.lblX.textContent = (humanMark() === 'x' ? (settings.name || t('you')) : t('computer')) + ' · X';
+      el.lblO.textContent = (humanMark() === 'o' ? (settings.name || t('you')) : t('computer')) + ' · O';
     }
+    el.lblD.textContent = t('draws');
   }
   function persist() {
     try {
@@ -937,20 +1225,21 @@
     } catch (e) { /* ignore */ }
   }
   function statusForTurn() {
+    startTurnTimer();
     if (settings.mode === 'online') {
       if (!online.ready) {
-        setStatus(online.role === 'guest' ? 'Connecting…' : 'Waiting for a friend…', '');
+        setStatus(online.role === 'guest' ? t('connectingStatus') : t('waitingStatus'), '');
         return;
       }
-      setStatus(turn === myOnlineMark() ? 'Your move' : friendName() + ' is thinking…',
+      setStatus(turn === myOnlineMark() ? t('yourMove') : t('thinking', { name: friendName() }),
         turn === myOnlineMark() ? 'turn-' + turn : 'turn-' + turn + ' thinking');
       return;
     }
     if (settings.mode === 'cpu') {
-      setStatus(turn === humanMark() ? 'Your move' : 'Computer is thinking…',
+      setStatus(turn === humanMark() ? t('yourMove') : t('cpuThinking'),
         turn === humanMark() ? 'turn-' + turn : 'turn-' + turn + ' thinking');
     } else {
-      setStatus(turn.toUpperCase() + ' to move', 'turn-' + turn);
+      setStatus(t('toMove', { mark: turn.toUpperCase() }), 'turn-' + turn);
     }
   }
 
@@ -961,6 +1250,7 @@
     turn = settings.mode === 'cpu' ? 'x' : starter; /* cpu mode: order picker decides via marks */
     over = false;
     lastCell = -1;
+    moveLog = [];
     el.rematchBtn.classList.add('hidden');
     el.strike.classList.remove('show', 'win-x', 'win-o');
     el.strikeLine.setAttribute('x1', 0); el.strikeLine.setAttribute('y1', 0);
@@ -991,6 +1281,7 @@
 
   function place(i) {
     board[i] = turn;
+    moveLog.push({ i: i, mark: turn });
     drawMark(i, turn);
     sfx(turn === 'x' ? 'placeX' : 'placeO');
     if (lastCell >= 0 && cells[lastCell]) cells[lastCell].classList.remove('last');
@@ -1022,9 +1313,11 @@
     renderScores();
     persist();
     if (settings.mode !== 'online' || online.ready) el.rematchBtn.classList.remove('hidden');
+    stopTurnTimer();
     if (win) {
-      var name = playerName(win.mark);
-      sfx(name === 'You' || settings.mode === 'pvp' ? 'win' : 'lose');
+      var kind = winnerKind(win.mark);
+      sfx(kind === 'you' || settings.mode === 'pvp' ? 'win' : 'lose');
+      if (kind === 'you' || settings.mode === 'pvp') confetti();
     } else {
       sfx('draw');
     }
@@ -1043,12 +1336,12 @@
         if (win.line.indexOf(j) >= 0) cells[j].classList.add('hit');
         else if (board[j]) cells[j].classList.add('dim');
       }
-      var name = playerName(win.mark);
-      setStatus(name === 'You' ? 'You win the round!' :
-        (name === 'Computer' ? 'Computer takes the round.' : name + ' wins the round!'),
+      var kind = winnerKind(win.mark);
+      setStatus(kind === 'you' ? t('youWin') :
+        (kind === 'cpu' ? t('cpuWins') : t('nameWins', { name: playerName(win.mark) })),
         'turn-' + win.mark);
     } else {
-      setStatus('A draw. Nobody blinked.', '');
+      setStatus(t('draw'), '');
     }
   }
 
@@ -1087,6 +1380,9 @@
     starter = Math.random() < 0.5 ? 'x' : 'o'; /* fresh opponent, fresh coin toss */
     el.diffSeg.classList.toggle('hidden', v !== 'cpu');
     el.orderSeg.classList.toggle('hidden', v !== 'cpu');
+    el.undoBtn.classList.toggle('hidden', v !== 'cpu');
+    el.timerSeg.classList.toggle('hidden', v !== 'online');
+    stopTurnTimer();
     if (v === 'online') {
       persist();
       startOnline('host');
@@ -1100,12 +1396,12 @@
   bindSeg(el.modeSeg, 'mode', function (v) {
     if (v === settings.mode) return;
     if (settings.mode === 'online' && online.ready) {
-      confirmThen('Leave the online game?',
-        'You are playing with ' + friendName() + '. Leaving ends the game for both of you.',
+      confirmThen(t('leaveTitle'),
+        t('leaveText', { name: friendName() }),
         function () {
           send({ t: 'bye' });
           switchMode(v);
-        }, 'Leave game', function () {
+        }, t('leaveOk'), function () {
           syncSeg(el.modeSeg, 'mode', settings.mode); /* stay */
         });
       return;
@@ -1123,7 +1419,7 @@
     if (+v === +settings.size) return;
     if (settings.mode === 'online' && online.role === 'guest') {
       syncSeg(el.sizeSeg, 'size', String(settings.size)); /* host picks the board */
-      note('Only the host can change the board size.');
+      note(t('onlyHostSize'));
       return;
     }
     if (settings.mode === 'online' && online.ready) {
@@ -1131,7 +1427,7 @@
       if (pendingOut.size) return;
       pendingOut.size = +v;
       send({ t: 'sizeReq', size: +v });
-      toast('Asked ' + friendName() + ' to switch to ' + v + '×' + v + '…');
+      toast(t('askedSize', { name: friendName(), s: v }));
       return;
     }
     applySize(+v);
@@ -1154,15 +1450,50 @@
       if (!online.ready || pendingOut.restart) return;
       pendingOut.restart = true;
       send({ t: 'restartReq' });
-      toast('Asked ' + friendName() + ' to start a new round…');
+      toast(t('askedRestart', { name: friendName() }));
       return;
     }
     if (!over && board.some(Boolean)) {
-      confirmThen('Start a new round?', 'The current round will be abandoned.', newRound, 'New round');
+      confirmThen(t('newRoundTitle'), t('newRoundText'), newRound, t('newRoundBtn'));
     } else {
       newRound();
     }
   }
+  bindSeg(el.timerSeg, 'timer', function (v) {
+    if (+v === +settings.timer) return;
+    if (settings.mode === 'online' && online.role === 'guest') {
+      syncSeg(el.timerSeg, 'timer', String(settings.timer));
+      note(t('onlyHostTimer'));
+      return;
+    }
+    settings.timer = +v;
+    persist();
+    if (settings.mode === 'online' && online.ready) send({ t: 'timer', secs: settings.timer });
+    startTurnTimer();
+  });
+
+  /* ----- undo (vs computer) ----- */
+  function undoOne() {
+    var m = moveLog.pop();
+    board[m.i] = null;
+    var mk = cells[m.i].querySelector('.mark');
+    if (mk) mk.remove();
+    cells[m.i].classList.remove('filled', 'last');
+    cells[m.i].setAttribute('aria-label', cellLabel(m.i));
+  }
+  el.undoBtn.addEventListener('click', function () {
+    if (settings.mode !== 'cpu' || over || !moveLog.length) return;
+    if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; el.arena.classList.remove('locked'); }
+    if (moveLog.length && moveLog[moveLog.length - 1].mark === cpuMark()) undoOne();
+    if (moveLog.length && moveLog[moveLog.length - 1].mark === humanMark()) undoOne();
+    lastCell = moveLog.length ? moveLog[moveLog.length - 1].i : -1;
+    if (lastCell >= 0) cells[lastCell].classList.add('last');
+    turn = humanMark();
+    el.arena.classList.remove('turn-x', 'turn-o');
+    el.arena.classList.add('turn-' + turn);
+    statusForTurn();
+  });
+
   document.getElementById('newRound').addEventListener('click', requestNewRound);
   el.rematchBtn.addEventListener('click', requestNewRound);
   document.getElementById('resetAll').addEventListener('click', function () {
@@ -1170,14 +1501,14 @@
       if (!online.ready || pendingOut.reset) return;
       pendingOut.reset = true;
       send({ t: 'resetReq' });
-      toast('Asked ' + friendName() + ' to reset the scores…');
+      toast(t('askedReset', { name: friendName() }));
       return;
     }
-    confirmThen('Reset all scores?', 'X, O and draw counts go back to zero.', function () {
+    confirmThen(t('resetTitle'), t('resetText'), function () {
       scores = { x: 0, o: 0, d: 0 };
       persist();
       renderScores();
-    }, 'Reset');
+    }, t('resetOk'));
   });
 
   /* ----- boot ----- */
@@ -1197,8 +1528,11 @@
   syncSeg(el.sizeSeg, 'size', String(settings.size));
   syncSeg(el.diffSeg, 'diff', settings.diff);
   syncSeg(el.orderSeg, 'order', settings.order);
+  syncSeg(el.timerSeg, 'timer', String(settings.timer));
   el.diffSeg.classList.toggle('hidden', settings.mode !== 'cpu');
   el.orderSeg.classList.toggle('hidden', settings.mode !== 'cpu');
+  el.undoBtn.classList.toggle('hidden', settings.mode !== 'cpu');
+  el.timerSeg.classList.toggle('hidden', settings.mode !== 'online');
   window.addEventListener('beforeunload', function (e) {
     if (settings.mode === 'online' && online.ready) {
       e.preventDefault();
@@ -1210,6 +1544,7 @@
   applyTheme();
   buildBoard();
   newRound();
+  applyLang();
   askName(function () {
     if (joinKey) startOnline('guest', joinKey);
   });
