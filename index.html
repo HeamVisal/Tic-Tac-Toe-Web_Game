@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tic Tac Toe — Play Online Free | 3×3, 5×5, 7×7 &amp; 10×10 Boards</title>
-<meta name="description" content="Play tic-tac-toe online for free. Choose 3×3, 5×5, 7×7 or 10×10 boards, challenge a friend on one device or take on the computer at three difficulty levels. No ads, no sign-up.">
+<title>Tic Tac Toe — Play Online Free | 3×3 to 20×20 Boards</title>
+<meta name="description" content="Play tic-tac-toe online for free. Choose from six board sizes (3×3 up to 20×20), challenge a friend on one device or take on the computer at three difficulty levels. No ads, no sign-up.">
 <meta name="robots" content="index, follow">
 <meta name="author" content="HeamVisal">
 <link rel="canonical" href="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Tic Tac Toe">
 <meta property="og:title" content="Tic Tac Toe — Play Online Free">
-<meta property="og:description" content="Free tic-tac-toe in your browser: 3×3, 5×5, 7×7 and 10×10 boards, two-player or vs computer.">
+<meta property="og:description" content="Free tic-tac-toe in your browser: six board sizes from 3×3 to 20×20, two-player, online with friends, or vs computer.">
 <meta property="og:url" content="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/">
 <meta property="og:image" content="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/assets/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <!-- Twitter / X card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Tic Tac Toe — Play Online Free">
-<meta name="twitter:description" content="Free tic-tac-toe in your browser: 3×3, 5×5, 7×7 and 10×10 boards, two-player or vs computer.">
+<meta name="twitter:description" content="Free tic-tac-toe in your browser: six board sizes from 3×3 to 20×20, two-player, online with friends, or vs computer.">
 <meta name="twitter:image" content="https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/assets/og-image.png">
 
 <link rel="stylesheet" href="./style.css">
@@ -38,7 +38,7 @@
   "@type": "VideoGame",
   "name": "Tic Tac Toe",
   "url": "https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/",
-  "description": "Free browser tic-tac-toe with 3×3, 5×5, 7×7 and 10×10 boards. Play a friend on one device or the computer at easy, tricky or perfect difficulty.",
+  "description": "Free browser tic-tac-toe with six board sizes from 3×3 up to 20×20. Play a friend on one device or the computer at easy, tricky or perfect difficulty.",
   "genre": "Board game",
   "gamePlatform": "Web browser",
   "applicationCategory": "GameApplication",
@@ -71,6 +71,8 @@
       <button type="button" data-size="5" aria-pressed="false">5×5</button>
       <button type="button" data-size="7" aria-pressed="false">7×7</button>
       <button type="button" data-size="10" aria-pressed="false">10×10</button>
+      <button type="button" data-size="15" aria-pressed="false">15×15</button>
+      <button type="button" data-size="20" aria-pressed="false">20×20</button>
     </div>
     <div class="seg hidden" id="diffSeg" role="group" aria-label="Difficulty">
       <button type="button" data-diff="easy" aria-pressed="false">Easy</button>
@@ -123,7 +125,7 @@
       who take turns marking a square on the grid. The first player to line up enough marks in a row —
       horizontally, vertically or diagonally — wins the round.</p>
     <p>Pick your challenge: the classic <strong>3×3</strong> board needs three in a row, <strong>5×5</strong>
-      needs four, and the big <strong>7×7</strong> and <strong>10×10</strong> boards need five in a row.
+      needs four, and the bigger boards — <strong>7×7</strong>, <strong>10×10</strong>, <strong>15×15</strong> and <strong>20×20</strong> — need five in a row.
       Play against a friend on the same device, invite an online friend with a shared link,
       or face the computer on easy, tricky or perfect difficulty.
       Scores are saved in your browser between visits. Free to play, no ads, no sign-up.</p>

@@ -12,7 +12,7 @@ A polished tic-tac-toe web game — no frameworks, no build step, no backend. Ju
   - **Two players** — pass and play on one device
   - **Vs computer** — three difficulties: *Easy* (random), *Tricky* (wins and blocks), *Perfect* (unbeatable minimax on 3×3, strong heuristic on bigger boards)
   - **Online friend** — click, get a game key, share the invite link, and play in real time
-- **Four board sizes**
+- **Six board sizes**
 
   | Board | Marks in a row to win |
   |-------|----------------------|
@@ -20,6 +20,8 @@ A polished tic-tac-toe web game — no frameworks, no build step, no backend. Ju
   | 5×5   | 4                    |
   | 7×7   | 5                    |
   | 10×10 | 5                    |
+  | 15×15 | 5                    |
+  | 20×20 | 5                    |
 
 - Animated marks, win strike-through, light/dark theme, keyboard navigation, screen-reader labels
 - Scores and settings saved in your browser between visits

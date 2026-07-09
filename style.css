@@ -395,3 +395,9 @@ body {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+/* ---------- huge boards (15x15, 20x20) ---------- */
+.arena.huge { width: min(96vw, 720px); }
+.arena.huge .cell { border-radius: 6px; padding: 8%; }
+.arena.huge .cell:focus-visible { outline-width: 1px; outline-offset: -2px; }
+.arena.huge .cell .ghost, .arena.huge .mark { inset: 8%; width: 84%; height: 84%; }

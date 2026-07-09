@@ -5,7 +5,7 @@
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
   /* board size -> marks in a row needed to win */
-  var BOARDS = { 3: 3, 5: 4, 7: 5, 10: 5 };
+  var BOARDS = { 3: 3, 5: 4, 7: 5, 10: 5, 15: 5, 20: 5 };
   var NEED_WORD = { 3: 'Three', 4: 'Four', 5: 'Five' };
   var DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]]; /* [dc, dr] */
 
@@ -247,7 +247,8 @@
       el.hash.appendChild(h);
     }
 
-    el.arena.classList.toggle('large', N >= 7);
+    el.arena.classList.toggle('large', N >= 7 && N < 15);
+    el.arena.classList.toggle('huge', N >= 15);
     el.tagline.textContent = NEED_WORD[K] + ' in a row wins the round.';
   }
 
