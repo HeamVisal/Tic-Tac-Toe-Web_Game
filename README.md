@@ -2,6 +2,9 @@
 
 A polished tic-tac-toe web game — no frameworks, no build step, no backend. Just open it and play.
 
+*Also known as: the XO game, XOX, OXO, OOO game, Xs and Os, noughts and crosses — and Gomoku
+(five in a row) on the big boards.*
+
 **▶ Play it live:** https://heamvisal.github.io/Tic-Tac-Toe-Web_Game/
 
 ![Tic Tac Toe preview](assets/og-image.png)
