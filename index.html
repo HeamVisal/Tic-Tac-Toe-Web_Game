@@ -105,6 +105,35 @@
     </svg>
   </div>
 
+  <section class="chat hidden" id="chat" aria-label="Chat with your friend">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-quick" id="chatQuick">
+      <button type="button" data-say="Haha! 😂">Haha! 😂</button>
+      <button type="button" data-say="You're too slow 🐢">You're too slow 🐢</button>
+      <button type="button" data-say="Noob 🤡">Noob 🤡</button>
+      <button type="button" data-say="Nice move 👏">Nice move 👏</button>
+      <button type="button" data-say="Lucky! 🍀">Lucky! 🍀</button>
+      <button type="button" data-say="GG 🤝">GG 🤝</button>
+      <button type="button" data-say="Rematch? 🔁">Rematch? 🔁</button>
+    </div>
+    <div class="chat-emoji" id="chatEmoji">
+      <button type="button" data-say="😂">😂</button>
+      <button type="button" data-say="😭">😭</button>
+      <button type="button" data-say="😡">😡</button>
+      <button type="button" data-say="🤡">🤡</button>
+      <button type="button" data-say="💀">💀</button>
+      <button type="button" data-say="🥱">🥱</button>
+      <button type="button" data-say="🔥">🔥</button>
+      <button type="button" data-say="👏">👏</button>
+      <button type="button" data-say="😎">😎</button>
+      <button type="button" data-say="😱">😱</button>
+    </div>
+    <form class="chat-row" id="chatForm">
+      <input type="text" id="chatInput" maxlength="120" placeholder="Say something…" autocomplete="off" aria-label="Chat message">
+      <button type="submit" class="btn primary mini">Send</button>
+    </form>
+  </section>
+
   <section class="score" aria-label="Score">
     <div class="tile tx"><div class="num" id="scoreX">0</div><div class="lbl" id="lblX">Player X</div></div>
     <div class="tile td"><div class="num" id="scoreD">0</div><div class="lbl">Draws</div></div>

@@ -43,7 +43,13 @@
     onlinePanel: document.getElementById('onlinePanel'),
     gameKey: document.getElementById('gameKey'),
     onlineNote: document.getElementById('onlineNote'),
-    copyLink: document.getElementById('copyLink')
+    copyLink: document.getElementById('copyLink'),
+    chat: document.getElementById('chat'),
+    chatLog: document.getElementById('chatLog'),
+    chatQuick: document.getElementById('chatQuick'),
+    chatEmoji: document.getElementById('chatEmoji'),
+    chatForm: document.getElementById('chatForm'),
+    chatInput: document.getElementById('chatInput')
   };
 
   /* ----- online play (WebRTC via PeerJS) ----- */
@@ -97,6 +103,8 @@
         online.ready = true;
         note('Friend joined! You are X — you start.');
         c.send({ t: 'hello', size: settings.size });
+        showChat();
+        addChat('sys', 'Friend joined');
         newRound();
       });
     });
@@ -123,6 +131,7 @@
       if (settings.mode === 'online') {
         note(online.role === 'host' ? 'Friend disconnected. Share the key to play again.' : 'Host disconnected.');
         setStatus('Friend disconnected', '');
+        addChat('sys', 'Friend left the game');
       }
     };
     c.on('data', onMessage);
@@ -158,6 +167,7 @@
     online.role = null;
     online.ready = false;
     el.onlinePanel.classList.add('hidden');
+    hideChat();
   }
 
   function onMessage(msg) {
@@ -168,6 +178,8 @@
       scores = { x: 0, o: 0, d: 0 };
       online.ready = true;
       note('Connected! You are O — your friend starts.');
+      showChat();
+      addChat('sys', 'Connected');
       buildBoard();
       newRound();
     } else if (msg.t === 'config') {  /* host changed the board size */
@@ -188,8 +200,55 @@
     } else if (msg.t === 'resetScores') {
       scores = { x: 0, o: 0, d: 0 };
       renderScores();
+    } else if (msg.t === 'chat') {
+      if (!online.ready || typeof msg.v !== 'string') return;
+      var text = msg.v.trim().slice(0, 120);
+      if (text) addChat('them', text);
     }
   }
+
+  /* ----- chat ----- */
+  var EMOJI_ONLY = null;
+  try { EMOJI_ONLY = new RegExp('^[\\p{Extended_Pictographic}\\u200D\\uFE0F]{1,6}$', 'u'); } catch (e) { /* old browser */ }
+
+  function addChat(who, text) {
+    var div = document.createElement('div');
+    div.className = 'chat-msg ' + who;                 /* 'me' | 'them' | 'sys' */
+    div.textContent = text;                            /* textContent only — never HTML */
+    if (who !== 'sys' && EMOJI_ONLY && EMOJI_ONLY.test(text)) div.classList.add('big');
+    el.chatLog.appendChild(div);
+    while (el.chatLog.children.length > 50) el.chatLog.removeChild(el.chatLog.firstChild);
+    el.chatLog.scrollTop = el.chatLog.scrollHeight;
+  }
+  function sendChat(text) {
+    text = String(text).trim().slice(0, 120);
+    if (!text || !online.ready) return;
+    send({ t: 'chat', v: text });
+    addChat('me', text);
+  }
+  function showChat() {
+    el.chat.classList.remove('hidden');
+  }
+  function hideChat() {
+    el.chat.classList.add('hidden');
+    el.chatLog.innerHTML = '';
+    el.chatInput.value = '';
+  }
+
+  el.chatForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    sendChat(el.chatInput.value);
+    el.chatInput.value = '';
+    el.chatInput.focus();
+  });
+  function bindSayButtons(wrap) {
+    wrap.addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (btn && btn.dataset.say) sendChat(btn.dataset.say);
+    });
+  }
+  bindSayButtons(el.chatQuick);
+  bindSayButtons(el.chatEmoji);
 
   el.copyLink.addEventListener('click', function () {
     var url = inviteUrl();
