@@ -471,6 +471,18 @@
   }
 
   /* ----- online play (WebRTC via PeerJS) ----- */
+  /* explicit ICE servers: PeerJS's bundled turn.peerjs.com relays are dead (verified
+     2026-07 — zero relay candidates), so name working STUN ourselves. Players behind
+     symmetric NAT / strict firewalls still need a TURN entry here (urls + username +
+     credential from e.g. a free metered.ca account) to connect. */
+  var PEER_CONF = {
+    config: {
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ]
+    }
+  };
   var online = { peer: null, conn: null, role: null, key: null, ready: false, peerName: null,
     byed: false, reconnecting: false, reconnT: null, rejected: false };
   var pendingOut = { restart: false, reset: false, size: null, timer: null };
@@ -528,7 +540,7 @@
   }
 
   function hostGame() {
-    online.peer = new Peer('ttt-' + online.key);
+    online.peer = new Peer('ttt-' + online.key, PEER_CONF);
     online.peer.on('open', function () {
       note(t('waitingNote'));
       statusForTurn();
@@ -563,7 +575,7 @@
   }
 
   function joinGame() {
-    online.peer = new Peer();
+    online.peer = new Peer(PEER_CONF);
     online.peer.on('open', function () {
       var c = online.peer.connect('ttt-' + online.key, { reliable: true });
       online.conn = c;
@@ -577,7 +589,9 @@
   }
 
   function bindConn(c) {
+    var iceGraceT = null;
     var gone = function () {
+      if (iceGraceT) { clearTimeout(iceGraceT); iceGraceT = null; }
       if (online.conn !== c) return;
       try { c.close(); } catch (e) {}
       online.conn = null;
@@ -609,9 +623,16 @@
     };
     c.on('data', onMessage);
     c.on('close', gone);
-    /* 'close' alone misses abrupt exits (tab killed, network drop) — watch ICE too */
+    /* 'close' alone misses abrupt exits (tab killed, network drop) — watch ICE too.
+       'disconnected' is often a transient blip that recovers on its own, so give it
+       a grace window; only 'failed'/'closed' are terminal right away. */
     c.on('iceStateChanged', function (state) {
-      if (state === 'disconnected' || state === 'failed' || state === 'closed') gone();
+      if (state === 'failed' || state === 'closed') { gone(); return; }
+      if (state === 'disconnected') {
+        if (!iceGraceT) iceGraceT = setTimeout(gone, 4000);
+      } else if (state === 'connected' || state === 'completed') {
+        if (iceGraceT) { clearTimeout(iceGraceT); iceGraceT = null; }
+      }
     });
   }
 
