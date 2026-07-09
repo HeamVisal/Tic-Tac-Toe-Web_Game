@@ -15,7 +15,12 @@ A polished tic-tac-toe web game — no frameworks, no build step, no backend. Ju
   - **Two players** — pass and play on one device
   - **Vs computer** — three difficulties: *Easy* (random), *Tricky* (wins and blocks), *Perfect* (unbeatable minimax on 3×3, strong heuristic on bigger boards)
   - **Online friend** — click, get a game key, share the invite link, and play in real time,
-    with built-in chat: free messages, an emoji bar and quick-chat taunts ("You're too slow 🐢", "Noob 🤡", …)
+    with built-in chat: free messages, an emoji bar and quick-chat taunts ("You're too slow 🐢", "Noob 🤡", …).
+    Chat sits beside the board on desktop, below it on phones, and incoming messages pop up as toasts
+- **Player names** — pick a name on entry (or keep the suggested PlayerN default); names appear on the
+  scoreboard, in chat and on your opponent's screen
+- **No accidental clicks** — new round / reset scores ask for confirmation; in online games both players
+  must accept, and leaving an online game (switching mode or closing the tab) warns you first
 - **Six board sizes**
 
   | Board | Marks in a row to win |

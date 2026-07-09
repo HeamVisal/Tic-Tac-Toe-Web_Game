@@ -97,6 +97,7 @@
 
   <p class="status turn-x" id="status" aria-live="polite"><span class="chip" aria-hidden="true"></span><span id="statusText">X to move</span></p>
 
+  <div class="playfield">
   <div class="arena turn-x" id="arena">
     <svg class="hash" id="hash" viewBox="0 0 300 300" aria-hidden="true"></svg>
     <div class="board" id="board" role="grid" aria-label="Tic tac toe board"></div>
@@ -133,6 +134,7 @@
       <button type="submit" class="btn primary mini">Send</button>
     </form>
   </section>
+  </div>
 
   <section class="score" aria-label="Score">
     <div class="tile tx"><div class="num" id="scoreX">0</div><div class="lbl" id="lblX">Player X</div></div>
@@ -163,6 +165,19 @@
       Scores are saved in your browser between visits. Free to play, no ads, no sign-up.</p>
   </footer>
 </main>
+
+<div class="modal-backdrop hidden" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <h3 id="modalTitle"></h3>
+    <p id="modalText"></p>
+    <input type="text" id="modalInput" class="hidden" maxlength="20" autocomplete="off" aria-label="Your name">
+    <div class="modal-actions">
+      <button type="button" class="btn quiet" id="modalCancel">Cancel</button>
+      <button type="button" class="btn primary" id="modalOk">OK</button>
+    </div>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script src="./script.js"></script>
 </body>

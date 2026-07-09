@@ -9,7 +9,7 @@
   var NEED_WORD = { 3: 'Three', 4: 'Four', 5: 'Five' };
   var DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]]; /* [dc, dr] */
 
-  var settings = { mode: 'pvp', diff: 'tricky', order: 'human', size: 3 };
+  var settings = { mode: 'pvp', diff: 'tricky', order: 'human', size: 3, name: '' };
   var scores = { x: 0, o: 0, d: 0 };
   try {
     var saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -49,11 +49,95 @@
     chatQuick: document.getElementById('chatQuick'),
     chatEmoji: document.getElementById('chatEmoji'),
     chatForm: document.getElementById('chatForm'),
-    chatInput: document.getElementById('chatInput')
+    chatInput: document.getElementById('chatInput'),
+    modal: document.getElementById('modal'),
+    modalTitle: document.getElementById('modalTitle'),
+    modalText: document.getElementById('modalText'),
+    modalInput: document.getElementById('modalInput'),
+    modalOk: document.getElementById('modalOk'),
+    modalCancel: document.getElementById('modalCancel'),
+    toasts: document.getElementById('toasts')
   };
 
+  /* ----- modal & toasts ----- */
+  var modalHandlers = { ok: null, cancel: null };
+
+  function showModal(o) {
+    el.modalTitle.textContent = o.title || '';
+    el.modalText.textContent = o.text || '';
+    el.modalText.classList.toggle('hidden', !o.text);
+    el.modalInput.classList.toggle('hidden', !o.input);
+    if (o.input) {
+      el.modalInput.value = o.value || '';
+      el.modalInput.placeholder = o.placeholder || '';
+    }
+    el.modalOk.textContent = o.okText || 'OK';
+    el.modalCancel.textContent = o.cancelText || 'Cancel';
+    el.modalCancel.classList.toggle('hidden', !!o.hideCancel);
+    modalHandlers.ok = o.onOk || null;
+    modalHandlers.cancel = o.onCancel || null;
+    el.modal.classList.remove('hidden');
+    if (o.input) el.modalInput.focus(); else el.modalOk.focus();
+  }
+  function closeModal() { el.modal.classList.add('hidden'); }
+  el.modalOk.addEventListener('click', function () {
+    var v = el.modalInput.value, fn = modalHandlers.ok;
+    modalHandlers.ok = modalHandlers.cancel = null;
+    closeModal();
+    if (fn) fn(v);
+  });
+  el.modalCancel.addEventListener('click', function () {
+    var fn = modalHandlers.cancel;
+    modalHandlers.ok = modalHandlers.cancel = null;
+    closeModal();
+    if (fn) fn();
+  });
+  el.modalInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); el.modalOk.click(); }
+  });
+  function confirmThen(title, text, onYes, okText, onNo) {
+    showModal({ title: title, text: text, okText: okText || 'Yes', cancelText: 'Cancel', onOk: onYes, onCancel: onNo });
+  }
+
+  function toast(text) {
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = text;
+    el.toasts.appendChild(t);
+    while (el.toasts.children.length > 4) el.toasts.removeChild(el.toasts.firstChild);
+    setTimeout(function () {
+      t.classList.add('gone');
+      setTimeout(function () { t.remove(); }, 450);
+    }, 3200);
+  }
+
+  function cleanName(v, fallback) {
+    return String(v || '').trim().slice(0, 20) || fallback;
+  }
+  function askName(done) {
+    var suggested = settings.name || 'Player' + Math.floor(1 + Math.random() * 999);
+    showModal({
+      title: 'What should we call you?',
+      text: 'Shown to your opponent in online games.',
+      input: true,
+      value: settings.name || '',
+      placeholder: suggested,
+      okText: "Let's play",
+      hideCancel: true,
+      onOk: function (v) {
+        settings.name = cleanName(v, suggested);
+        persist();
+        renderScores();
+        if (done) done();
+      }
+    });
+  }
+
   /* ----- online play (WebRTC via PeerJS) ----- */
-  var online = { peer: null, conn: null, role: null, key: null, ready: false };
+  var online = { peer: null, conn: null, role: null, key: null, ready: false, peerName: null };
+  var pendingOut = { restart: false, reset: false, size: null };
+
+  function friendName() { return online.peerName || 'Friend'; }
   var KEY_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
   function genKey() {
@@ -102,9 +186,8 @@
       c.on('open', function () {
         online.ready = true;
         note('Friend joined! You are X — you start.');
-        c.send({ t: 'hello', size: settings.size });
+        c.send({ t: 'hello', size: settings.size, name: settings.name });
         showChat();
-        addChat('sys', 'Friend joined');
         newRound();
       });
     });
@@ -128,10 +211,15 @@
       try { c.close(); } catch (e) {}
       online.conn = null;
       online.ready = false;
+      pendingOut.restart = pendingOut.reset = false;
+      pendingOut.size = null;
       if (settings.mode === 'online') {
-        note(online.role === 'host' ? 'Friend disconnected. Share the key to play again.' : 'Host disconnected.');
-        setStatus('Friend disconnected', '');
-        addChat('sys', 'Friend left the game');
+        note(online.role === 'host'
+          ? friendName() + ' disconnected. Share the key to play again.'
+          : friendName() + ' (host) disconnected.');
+        setStatus(friendName() + ' disconnected', '');
+        addChat('sys', friendName() + ' left the game');
+        toast(friendName() + ' left the game');
       }
     };
     c.on('data', onMessage);
@@ -166,44 +254,119 @@
     online.conn = null;
     online.role = null;
     online.ready = false;
+    online.peerName = null;
+    pendingOut.restart = pendingOut.reset = false;
+    pendingOut.size = null;
     el.onlinePanel.classList.add('hidden');
     hideChat();
+  }
+
+  function doReset() {
+    scores = { x: 0, o: 0, d: 0 };
+    renderScores();
   }
 
   function onMessage(msg) {
     if (!msg || typeof msg !== 'object' || settings.mode !== 'online') return;
     if (msg.t === 'hello') {          /* guest: host sent the game setup */
       if (BOARDS[msg.size]) settings.size = +msg.size;
+      online.peerName = cleanName(msg.name, 'Friend');
       syncSeg(el.sizeSeg, 'size', String(settings.size));
       scores = { x: 0, o: 0, d: 0 };
       online.ready = true;
-      note('Connected! You are O — your friend starts.');
+      note('Connected! You are O — ' + friendName() + ' starts.');
+      send({ t: 'hi', name: settings.name });
       showChat();
-      addChat('sys', 'Connected');
+      addChat('sys', 'Connected with ' + friendName());
+      toast('Connected with ' + friendName() + '!');
       buildBoard();
       newRound();
-    } else if (msg.t === 'config') {  /* host changed the board size */
+    } else if (msg.t === 'hi') {      /* host: guest introduced themselves */
+      online.peerName = cleanName(msg.name, 'Friend');
+      note(friendName() + ' joined! You are X — you start.');
+      addChat('sys', friendName() + ' joined');
+      toast(friendName() + ' joined the game!');
+      renderScores();
+    } else if (msg.t === 'sizeReq') {  /* host proposes a board change */
       if (online.role !== 'guest' || !BOARDS[msg.size]) return;
-      settings.size = +msg.size;
-      syncSeg(el.sizeSeg, 'size', String(settings.size));
-      scores = { x: 0, o: 0, d: 0 };
-      buildBoard();
-      newRound();
+      var n = +msg.size;
+      confirmThen('Change the board to ' + n + '×' + n + '?',
+        friendName() + ' wants to switch the board to ' + n + '×' + n + '. Scores are kept.',
+        function () {
+          send({ t: 'sizeOk' });
+          applySize(n);
+        }, 'Accept', function () {
+          send({ t: 'sizeNo' });
+        });
+    } else if (msg.t === 'sizeOk') {
+      if (!pendingOut.size) return;
+      var n2 = pendingOut.size;
+      pendingOut.size = null;
+      toast(friendName() + ' accepted — board is now ' + n2 + '×' + n2 + '.');
+      applySize(n2);
+    } else if (msg.t === 'sizeNo') {
+      if (!pendingOut.size) return;
+      pendingOut.size = null;
+      toast(friendName() + ' declined the board change.');
     } else if (msg.t === 'move') {
       var i = msg.i | 0;
       if (over || !online.ready) return;
       if (turn === myOnlineMark()) return;          /* only on their turn */
       if (i < 0 || i >= board.length || board[i]) return;
       place(i);
-    } else if (msg.t === 'restart') {
+    } else if (msg.t === 'restartReq') {
+      if (pendingOut.restart) {       /* both asked — just agree */
+        pendingOut.restart = false;
+        send({ t: 'restartOk' });
+        newRound();
+        return;
+      }
+      confirmThen('New round?', friendName() + ' wants to start a new round.', function () {
+        send({ t: 'restartOk' });
+        newRound();
+      }, 'Accept', function () {
+        send({ t: 'restartNo' });
+      });
+    } else if (msg.t === 'restartOk') {
+      if (!pendingOut.restart) return;
+      pendingOut.restart = false;
+      toast(friendName() + ' accepted — new round!');
       newRound();
-    } else if (msg.t === 'resetScores') {
-      scores = { x: 0, o: 0, d: 0 };
-      renderScores();
+    } else if (msg.t === 'restartNo') {
+      if (!pendingOut.restart) return;
+      pendingOut.restart = false;
+      toast(friendName() + ' declined the new round.');
+    } else if (msg.t === 'resetReq') {
+      if (pendingOut.reset) {
+        pendingOut.reset = false;
+        send({ t: 'resetOk' });
+        doReset();
+        return;
+      }
+      confirmThen('Reset scores?', friendName() + ' wants to reset all scores to zero.', function () {
+        send({ t: 'resetOk' });
+        doReset();
+      }, 'Accept', function () {
+        send({ t: 'resetNo' });
+      });
+    } else if (msg.t === 'resetOk') {
+      if (!pendingOut.reset) return;
+      pendingOut.reset = false;
+      toast(friendName() + ' accepted — scores reset.');
+      doReset();
+    } else if (msg.t === 'resetNo') {
+      if (!pendingOut.reset) return;
+      pendingOut.reset = false;
+      toast(friendName() + ' declined the score reset.');
+    } else if (msg.t === 'bye') {     /* opponent left deliberately */
+      if (online.conn) { try { online.conn.close(); } catch (e) {} }
     } else if (msg.t === 'chat') {
       if (!online.ready || typeof msg.v !== 'string') return;
       var text = msg.v.trim().slice(0, 120);
-      if (text) addChat('them', text);
+      if (text) {
+        addChat('them', text);
+        toast(friendName() + ': ' + (text.length > 60 ? text.slice(0, 60) + '…' : text));
+      }
     }
   }
 
@@ -214,8 +377,15 @@
   function addChat(who, text) {
     var div = document.createElement('div');
     div.className = 'chat-msg ' + who;                 /* 'me' | 'them' | 'sys' */
-    div.textContent = text;                            /* textContent only — never HTML */
-    if (who !== 'sys' && EMOJI_ONLY && EMOJI_ONLY.test(text)) div.classList.add('big');
+    var isEmoji = who !== 'sys' && EMOJI_ONLY && EMOJI_ONLY.test(text);
+    if (who === 'them' && !isEmoji) {
+      var nm = document.createElement('span');
+      nm.className = 'chat-who';
+      nm.textContent = friendName();
+      div.appendChild(nm);
+    }
+    div.appendChild(document.createTextNode(text));    /* text node only — never HTML */
+    if (isEmoji) div.classList.add('big');
     el.chatLog.appendChild(div);
     while (el.chatLog.children.length > 50) el.chatLog.removeChild(el.chatLog.firstChild);
     el.chatLog.scrollTop = el.chatLog.scrollHeight;
@@ -328,7 +498,7 @@
 
   function playerName(mark) {
     if (settings.mode === 'pvp') return mark.toUpperCase();
-    if (settings.mode === 'online') return mark === myOnlineMark() ? 'You' : 'Friend';
+    if (settings.mode === 'online') return mark === myOnlineMark() ? 'You' : friendName();
     return mark === humanMark() ? 'You' : 'Computer';
   }
 
@@ -483,11 +653,12 @@
       el.lblX.textContent = 'Player X';
       el.lblO.textContent = 'Player O';
     } else if (settings.mode === 'online') {
-      el.lblX.textContent = (online.role === 'host' ? 'You' : 'Friend') + ' · X';
-      el.lblO.textContent = (online.role === 'host' ? 'Friend' : 'You') + ' · O';
+      var me = settings.name || 'You';
+      el.lblX.textContent = (online.role === 'host' ? me : friendName()) + ' · X';
+      el.lblO.textContent = (online.role === 'host' ? friendName() : me) + ' · O';
     } else {
-      el.lblX.textContent = (humanMark() === 'x' ? 'You' : 'Computer') + ' · X';
-      el.lblO.textContent = (humanMark() === 'o' ? 'You' : 'Computer') + ' · O';
+      el.lblX.textContent = (humanMark() === 'x' ? (settings.name || 'You') : 'Computer') + ' · X';
+      el.lblO.textContent = (humanMark() === 'o' ? (settings.name || 'You') : 'Computer') + ' · O';
     }
   }
   function persist() {
@@ -501,7 +672,7 @@
         setStatus(online.role === 'guest' ? 'Connecting…' : 'Waiting for a friend…', '');
         return;
       }
-      setStatus(turn === myOnlineMark() ? 'Your move' : 'Friend is thinking…',
+      setStatus(turn === myOnlineMark() ? 'Your move' : friendName() + ' is thinking…',
         turn === myOnlineMark() ? 'turn-' + turn : 'turn-' + turn + ' thinking');
       return;
     }
@@ -622,8 +793,7 @@
     });
   }
 
-  bindSeg(el.modeSeg, 'mode', function (v) {
-    if (v === settings.mode) return;
+  function switchMode(v) {
     settings.mode = v;
     scores = { x: 0, o: 0, d: 0 };
     el.diffSeg.classList.toggle('hidden', v !== 'cpu');
@@ -637,7 +807,29 @@
       persist();
       newRound();
     }
+  }
+  bindSeg(el.modeSeg, 'mode', function (v) {
+    if (v === settings.mode) return;
+    if (settings.mode === 'online' && online.ready) {
+      confirmThen('Leave the online game?',
+        'You are playing with ' + friendName() + '. Leaving ends the game for both of you.',
+        function () {
+          send({ t: 'bye' });
+          switchMode(v);
+        }, 'Leave game', function () {
+          syncSeg(el.modeSeg, 'mode', settings.mode); /* stay */
+        });
+      return;
+    }
+    switchMode(v);
   });
+  function applySize(n) {
+    settings.size = n;               /* scores are kept across board changes */
+    persist();
+    buildBoard();
+    newRound();
+    syncSeg(el.sizeSeg, 'size', String(n));
+  }
   bindSeg(el.sizeSeg, 'size', function (v) {
     if (+v === +settings.size) return;
     if (settings.mode === 'online' && online.role === 'guest') {
@@ -645,12 +837,15 @@
       note('Only the host can change the board size.');
       return;
     }
-    settings.size = +v;
-    scores = { x: 0, o: 0, d: 0 };
-    persist();
-    buildBoard();
-    newRound();
-    if (settings.mode === 'online' && online.ready) send({ t: 'config', size: settings.size });
+    if (settings.mode === 'online' && online.ready) {
+      syncSeg(el.sizeSeg, 'size', String(settings.size)); /* stays put until friend accepts */
+      if (pendingOut.size) return;
+      pendingOut.size = +v;
+      send({ t: 'sizeReq', size: +v });
+      toast('Asked ' + friendName() + ' to switch to ' + v + '×' + v + '…');
+      return;
+    }
+    applySize(+v);
   });
   bindSeg(el.diffSeg, 'diff', function (v) {
     if (v === settings.diff) return;
@@ -667,20 +862,31 @@
 
   document.getElementById('newRound').addEventListener('click', function () {
     if (settings.mode === 'online') {
-      if (!online.ready) return;
-      send({ t: 'restart' });
+      if (!online.ready || pendingOut.restart) return;
+      pendingOut.restart = true;
+      send({ t: 'restartReq' });
+      toast('Asked ' + friendName() + ' to start a new round…');
+      return;
     }
-    newRound();
+    if (!over && board.some(Boolean)) {
+      confirmThen('Start a new round?', 'The current round will be abandoned.', newRound, 'New round');
+    } else {
+      newRound();
+    }
   });
   document.getElementById('resetAll').addEventListener('click', function () {
-    scores = { x: 0, o: 0, d: 0 };
-    persist();
     if (settings.mode === 'online') {
-      send({ t: 'resetScores' });
-      renderScores();
-      return; /* don't wipe the board mid-game */
+      if (!online.ready || pendingOut.reset) return;
+      pendingOut.reset = true;
+      send({ t: 'resetReq' });
+      toast('Asked ' + friendName() + ' to reset the scores…');
+      return;
     }
-    newRound();
+    confirmThen('Reset all scores?', 'X, O and draw counts go back to zero.', function () {
+      scores = { x: 0, o: 0, d: 0 };
+      persist();
+      renderScores();
+    }, 'Reset');
   });
 
   /* ----- boot ----- */
@@ -702,7 +908,16 @@
   syncSeg(el.orderSeg, 'order', settings.order);
   el.diffSeg.classList.toggle('hidden', settings.mode !== 'cpu');
   el.orderSeg.classList.toggle('hidden', settings.mode !== 'cpu');
+  window.addEventListener('beforeunload', function (e) {
+    if (settings.mode === 'online' && online.ready) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
   buildBoard();
-  if (joinKey) startOnline('guest', joinKey);
   newRound();
+  askName(function () {
+    if (joinKey) startOnline('guest', joinKey);
+  });
 })();
